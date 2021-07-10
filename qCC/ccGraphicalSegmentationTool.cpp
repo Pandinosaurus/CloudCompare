@@ -275,11 +275,13 @@ void ccGraphicalSegmentationTool::reset()
 			ccHObjectCaster::ToGenericPointCloud(*p)->resetVisibilityArray();
 		}
 
-		if (m_associatedWin)
-			m_associatedWin->redraw(false);
 		m_somethingHasChanged = false;
 	}
-
+	if (m_associatedWin)
+	{
+		m_associatedWin->redraw(false);
+		m_associatedWin->releaseMouse();
+	}
 	razButton->setEnabled(false);
 	validButton->setEnabled(false);
 	validAndDeleteButton->setEnabled(false);
@@ -961,7 +963,7 @@ void ccGraphicalSegmentationTool::doExportSegmentationPolyline()
 					CCVector3d Pd(half_w + Pscreen->x, half_h + Pscreen->y, 0/*Pscreen->z*/);
 					CCVector3d Q3D;
 					camera.unproject(Pd, Q3D);
-					*Pscreen = CCVector3::fromArray(Q3D.u);
+					*Pscreen = Q3D.toPC();
 				}
 				verticesPC->invalidateBoundingBox();
 			}
