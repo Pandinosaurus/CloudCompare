@@ -14,8 +14,8 @@ file( GLOB ui_list ui_templates/*.ui )
 file( GLOB qrc_list ../qCC/*.qrc )
 file( GLOB rc_list ../qCC/*.rc )
 
-qt5_wrap_ui( generated_ui_list ${ui_list} )
-qt5_add_resources( generated_qrc_list ${qrc_list} )
+qt6_add_resources( generated_qrc_list ${qrc_list} )
+qt6_wrap_ui( generated_ui_list ${ui_list})
 
 if( MSVC )
 	# App icon with MSVC
@@ -23,10 +23,27 @@ if( MSVC )
 
 	#to get rid of the (system) console
 	add_executable( ${PROJECT_NAME} WIN32 ${header_list} ${source_list} ${generated_ui_list} ${generated_qrc_list} ${rc_list}  ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/windows/qt5.natvis )
-elseif( APPLE )
-	add_executable( ${PROJECT_NAME} MACOSX_BUNDLE ${header_list} ${source_list} ${generated_ui_list} ${generated_qrc_list} ${rc_list} )
+elseif( CC_MACOS_BUNDLE )
+	add_executable( ${PROJECT_NAME} MACOSX_BUNDLE ${header_list} ${generated_ui_list} ${source_list}  ${generated_qrc_list} ${rc_list} )
 else()
 	add_executable( ${PROJECT_NAME} ${header_list} ${source_list} ${generated_ui_list} ${generated_qrc_list} ${rc_list} )
+endif()
+
+
+#qt6_add_ui(${PROJECT_NAME} SOURCES ${ui_list} ) # Qt >= 6.8
+
+target_link_libraries( ${PROJECT_NAME}
+	PUBLIC
+		CCPluginStub
+)
+
+if( CCCORELIB_USE_QT_CONCURRENT )
+	# We want deployqt to handle this dependency, so instead of just copying the file
+	# link to the target.
+	target_link_libraries( ${PROJECT_NAME}
+		PRIVATE
+			Qt6::Concurrent
+	)
 endif()
 
 if( WIN32 )
@@ -46,25 +63,9 @@ else()
 endif()
 
 target_link_libraries( ${PROJECT_NAME}
-    CCAppCommon
+	PRIVATE
+    	CCAppCommon
 )
-
-if( CCCORELIB_USE_QT_CONCURRENT )
-	# We want *deployqt to handle this dependency, so instead of just copying the file
-	# link to the target.
-	target_link_libraries( ${PROJECT_NAME}
-		Qt5::Concurrent
-	)
-endif()
-
-# contrib. libraries support
-if ( APPLE )
-	target_link_contrib( ${PROJECT_NAME} ${CLOUDCOMPARE_MAC_FRAMEWORK_DIR} )
-elseif( UNIX )
-	target_link_contrib( ${PROJECT_NAME} ${CMAKE_INSTALL_LIBDIR}/cloudcompare )
-else()
-	target_link_contrib( ${PROJECT_NAME} ${CCVIEWER_DEST_FOLDER} )
-endif()
 
 # Add custom preprocessor definitions
 target_compile_definitions( ${PROJECT_NAME} PUBLIC CC_VIEWER )
@@ -82,8 +83,10 @@ if( WIN32 )
 	endif()
 endif()
 
-# install program
-install_ext( TARGETS ccViewer ${CCVIEWER_DEST_FOLDER} "" )
+if (NOT CC_MACOS_BUNDLE)
+	# install program
+	install_ext( TARGETS ccViewer ${CCVIEWER_DEST_FOLDER} "" )
+endif()
 
 # Auxiliary files
 set( auxFiles bin_other/license.txt )
@@ -94,16 +97,16 @@ if( WIN32 )
 endif()
 
 # Install auxiliary files
-if(APPLE OR WIN32) # For Linux it's already installed in by qCC
+if(CC_MACOS_BUNDLE OR WIN32) # For Linux it's already installed in by qCC
 	foreach( filename ${auxFiles} )
 		install_ext( FILES ${filename} ${CCVIEWER_DEST_FOLDER} "" )
 	endforeach()
 endif()
 
 # Put together our Application bundle on macOS
-if( APPLE )
+if( CC_MACOS_BUNDLE )
 	add_subdirectory( Mac )
-endif( APPLE )
+endif( CC_MACOS_BUNDLE )
 
 # Export common shader files to all install destinations
 if( WIN32 ) # For Linux it's already installed in by qCC
@@ -111,7 +114,7 @@ if( WIN32 ) # For Linux it's already installed in by qCC
 endif()
 
 # Install plugins & shaders in the correct folder for each platform
-if( APPLE )	
+if( CC_MACOS_BUNDLE )	
 	InstallPlugins(
 		TYPES "gl;io"
 		DEST_PATH "${CCVIEWER_MAC_PLUGIN_DIR}"
@@ -132,3 +135,7 @@ else()
 		SHADER_DEST_FOLDER "shaders"
 )
 endif()
+
+# Add a 'fake' custom target to force the recompilation of ccApplication.ccp in order to
+# always get an up-to-date version number (based on the current date)
+add_custom_target(CC_VIEWER_UPDATE_VERSION ALL COMMAND ${CMAKE_COMMAND} -E touch_nocreate ${CMAKE_CURRENT_SOURCE_DIR}/ccViewerApplication.cpp)

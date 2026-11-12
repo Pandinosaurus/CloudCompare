@@ -1,76 +1,74 @@
-//##########################################################################
-//#                                                                        #
-//#                              CLOUDCOMPARE                              #
-//#                                                                        #
-//#  This program is free software; you can redistribute it and/or modify  #
-//#  it under the terms of the GNU General Public License as published by  #
-//#  the Free Software Foundation; version 2 or later of the License.      #
-//#                                                                        #
-//#  This program is distributed in the hope that it will be useful,       #
-//#  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
-//#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
-//#  GNU General Public License for more details.                          #
-//#                                                                        #
-//#          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
-//#                                                                        #
-//##########################################################################
+// ##########################################################################
+// #                                                                        #
+// #                              CLOUDCOMPARE                              #
+// #                                                                        #
+// #  This program is free software; you can redistribute it and/or modify  #
+// #  it under the terms of the GNU General Public License as published by  #
+// #  the Free Software Foundation; version 2 or later of the License.      #
+// #                                                                        #
+// #  This program is distributed in the hope that it will be useful,       #
+// #  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
+// #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
+// #  GNU General Public License for more details.                          #
+// #                                                                        #
+// #          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
+// #                                                                        #
+// ##########################################################################
 
 #include "ccTracePolylineTool.h"
-#include "ui_tracePolylineDlg.h"
 
-//Local
-#include "mainwindow.h"
+// Local
 #include "ccReservedIDs.h"
+#include "mainwindow.h"
 
-//common
+// Ui
+#include <ui_tracePolylineDlg.h>
+
+// CCPluginAPI
 #include <ccPickingHub.h>
 
-//qCC_db
-#include <ccPolyline.h>
+// qCC_db
 #include <ccPointCloud.h>
+#include <ccPolyline.h>
+#include <ccProgressDialog.h>
 
-//Qt
-#include <QProgressDialog>
-
-//System
+// System
 #include <cassert>
 
-
-ccTracePolylineTool::SegmentGLParams::SegmentGLParams(ccGenericGLDisplay* display, int x , int y)
+ccTracePolylineTool::SegmentGLParams::SegmentGLParams(ccGenericGLDisplay* display, int x, int y)
 {
 	if (display)
 	{
 		display->getGLCameraParameters(params);
-		QPointF pos2D = display->toCornerGLCoordinates(x, y);
-		clickPos = CCVector2d(pos2D.x(), pos2D.y());
+		clickPos = CCVector2d(x, params.viewport[3] - 1 - y);
 	}
 }
 
 ccTracePolylineTool::ccTracePolylineTool(ccPickingHub* pickingHub, QWidget* parent)
-	: ccOverlayDialog(parent)
-	, m_polyTip(nullptr)
-	, m_polyTipVertices(nullptr)
-	, m_poly3D(nullptr)
-	, m_poly3DVertices(nullptr)
-	, m_done(false)
-	, m_pickingHub(pickingHub)
-	, m_ui( new Ui::TracePolyLineDlg )
+    : ccOverlayDialog(parent)
+    , m_polyTip(nullptr)
+    , m_polyTipVertices(nullptr)
+    , m_poly3D(nullptr)
+    , m_poly3DVertices(nullptr)
+    , m_done(false)
+    , m_pickingHub(pickingHub)
+    , m_ui(std::make_unique<Ui::TracePolyLineDlg>())
 {
 	assert(pickingHub);
 
 	m_ui->setupUi(this);
 	setWindowFlags(Qt::FramelessWindowHint | Qt::Tool);
 
-	connect(m_ui->saveToolButton,		&QToolButton::clicked, this, &ccTracePolylineTool::exportLine);
-	connect(m_ui->resetToolButton,		&QToolButton::clicked, this, &ccTracePolylineTool::resetLine);
-	connect(m_ui->continueToolButton,	&QToolButton::clicked, this, &ccTracePolylineTool::continueEdition);
-	connect(m_ui->validButton,			&QToolButton::clicked, this, &ccTracePolylineTool::apply);
-	connect(m_ui->cancelButton,			&QToolButton::clicked, this, &ccTracePolylineTool::cancel);
-	connect(m_ui->widthSpinBox,			static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), this, &ccTracePolylineTool::onWidthSizeChanged);
+	connect(m_ui->saveToolButton, &QToolButton::clicked, this, &ccTracePolylineTool::exportLine);
+	connect(m_ui->resetToolButton, &QToolButton::clicked, this, &ccTracePolylineTool::resetLine);
+	connect(m_ui->continueToolButton, &QToolButton::clicked, this, &ccTracePolylineTool::continueEdition);
+	connect(m_ui->validButton, &QToolButton::clicked, this, &ccTracePolylineTool::apply);
+	connect(m_ui->cancelButton, &QToolButton::clicked, this, &ccTracePolylineTool::cancel);
+	connect(m_ui->widthSpinBox, qOverload<int>(&QSpinBox::valueChanged), this, &ccTracePolylineTool::onWidthSizeChanged);
 
-	//add shortcuts
-	addOverridenShortcut(Qt::Key_Escape); //escape key for the "cancel" button
-	addOverridenShortcut(Qt::Key_Return); //return key for the "apply" button
+	// add shortcuts
+	addOverriddenShortcut(Qt::Key_Escape); // escape key for the "cancel" button
+	addOverriddenShortcut(Qt::Key_Return); // return key for the "apply" button
 	connect(this, &ccTracePolylineTool::shortcutTriggered, this, &ccTracePolylineTool::onShortcutTriggered);
 
 	m_polyTipVertices = new ccPointCloud("Tip vertices", static_cast<unsigned>(ReservedIDs::TRACE_POLYLINE_TOOL_POLYLINE_TIP_VERTICES));
@@ -93,19 +91,13 @@ ccTracePolylineTool::ccTracePolylineTool(ccPickingHub* pickingHub, QWidget* pare
 
 ccTracePolylineTool::~ccTracePolylineTool()
 {
-	if (m_polyTip)
-		delete m_polyTip;
-	//DGM: already a child of m_polyTip
-	//if (m_polyTipVertices)
-	//	delete m_polyTipVertices;
+	// m_polyTipVertices is already a child of m_polyTip
+	delete m_polyTip;
+	m_polyTip = nullptr;
 
-	if (m_poly3D)
-		delete m_poly3D;
-	//DGM: already a child of m_poly3D
-	//if (m_poly3DVertices)
-	//	delete m_poly3DVertices;
-	
-	delete m_ui;
+	// m_poly3DVertices is already a child of m_poly3D
+	delete m_poly3D;
+	m_poly3D = nullptr;
 }
 
 void ccTracePolylineTool::onShortcutTriggered(int key)
@@ -121,7 +113,7 @@ void ccTracePolylineTool::onShortcutTriggered(int key)
 		return;
 
 	default:
-		//nothing to do
+		// nothing to do
 		break;
 	}
 }
@@ -136,57 +128,62 @@ ccPolyline* ccTracePolylineTool::polylineOverSampling(unsigned steps) const
 
 	if (steps <= 1)
 	{
-		//nothing to do
+		// nothing to do
 		return nullptr;
 	}
 
 	ccHObject::Container clouds;
-	m_associatedWin->getSceneDB()->filterChildren(clouds, true, CC_TYPES::POINT_CLOUD, false, m_associatedWin);
 	ccHObject::Container meshes;
-	m_associatedWin->getSceneDB()->filterChildren(meshes, true, CC_TYPES::MESH, false, m_associatedWin);
+	if (m_associatedWin)
+	{
+		m_associatedWin->getSceneDB()->filterChildren(clouds, true, CC_TYPES::POINT_CLOUD, false, m_associatedWin);
+		m_associatedWin->getSceneDB()->filterChildren(meshes, true, CC_TYPES::MESH, false, m_associatedWin);
+	}
 
 	if (clouds.empty() && meshes.empty())
 	{
-		//no entity is currently displayed?!
+		// no entity is currently displayed?!
 		assert(false);
 		return nullptr;
 	}
 
-	unsigned n_verts = m_poly3DVertices->size();
-	unsigned n_segments = m_poly3D->size() - (m_poly3D->isClosed() ? 0 : 1);
-	unsigned end_size = n_segments * steps + (m_poly3D->isClosed() ? 0 : 1);
+	unsigned vertexCount  = m_poly3DVertices->size();
+	unsigned segmentCount = m_poly3D->size() - (m_poly3D->isClosed() ? 0 : 1);
+	unsigned endSize      = segmentCount * steps + (m_poly3D->isClosed() ? 0 : 1);
 
 	ccPointCloud* newVertices = new ccPointCloud();
-	ccPolyline* newPoly = new ccPolyline(newVertices);
+	ccPolyline*   newPoly     = new ccPolyline(newVertices);
 	newPoly->addChild(newVertices);
 
-	if (	!newVertices->reserve(end_size)
-		||	!newPoly->reserve(end_size) )
+	if (!newVertices->reserve(endSize)
+	    || !newPoly->reserve(endSize))
 	{
 		ccLog::Warning("[ccTracePolylineTool::PolylineOverSampling] Not enough memory");
 		delete newPoly;
 		return nullptr;
 	}
-	newVertices->importParametersFrom(m_poly3DVertices);
+	newVertices->importParametersFrom(*m_poly3DVertices);
 	newVertices->setName(m_poly3DVertices->getName());
 	newVertices->setEnabled(m_poly3DVertices->isEnabled());
 	newPoly->importParametersFrom(*m_poly3D);
 	newPoly->setDisplay_recursive(m_poly3D->getDisplay());
 
-	QProgressDialog pDlg(QString("Oversampling"), "Cancel", 0, static_cast<int>(end_size), m_associatedWin ? m_associatedWin->asWidget() : nullptr);
+	ccProgressDialog pDlg(true, m_associatedWin ? m_associatedWin->asWidget() : nullptr);
+	pDlg.setWindowTitle("Oversampling");
+	pDlg.setMethodTitle(tr("Oversampling polyline: %1 vertices").arg(endSize));
+	pDlg.setRange(0, static_cast<int>(endSize));
 	pDlg.show();
 	QCoreApplication::processEvents();
 
-	for (unsigned i = 0; i < n_segments; ++i)
+	for (unsigned i = 0; i < segmentCount; ++i)
 	{
 		const CCVector3* p1 = m_poly3DVertices->getPoint(i);
 		newVertices->addPoint(*p1);
 
-
-		unsigned i2 = (i + 1) % n_verts;
-		CCVector2d clickPos1/* = m_segmentParams[i].clickPos*/;
+		unsigned   i2 = (i + 1) % vertexCount;
+		CCVector2d clickPos1 /* = m_segmentParams[i].clickPos*/;
 		{
-			//we actually retro-project the 3D point in the second vertex camera frame so as to get a proper behavior
+			// we actually retro-project the 3D point in the second vertex camera frame so as to get a proper behavior
 			CCVector3d P2D;
 			m_segmentParams[i2].params.project(*p1, P2D);
 			clickPos1 = CCVector2d(P2D.x, P2D.y);
@@ -200,58 +197,59 @@ ccPolyline* ccTracePolylineTool::polylineOverSampling(unsigned steps) const
 			CCVector2d vj = clickPos1 + v * j;
 
 			CCVector3 nearestPoint;
-			double nearestElementSquareDist = -1.0;
+			double    nearestElementSquareDist = -1.0;
 
-			//for each cloud
-			for (size_t c = 0; c < clouds.size(); ++c)
+			// for each cloud
+			for (auto* entity : clouds)
 			{
-				ccGenericPointCloud* cloud = static_cast<ccGenericPointCloud*>(clouds[c]);
+				ccGenericPointCloud* cloud = static_cast<ccGenericPointCloud*>(entity);
 				if (!cloud->isDisplayedIn(m_associatedWin))
 				{
 					continue;
 				}
-				
-				int nearestPointIndex = -1;
+
+				int    nearestPointIndex = -1;
 				double nearestSquareDist = 0;
 				if (cloud->pointPicking(vj,
-										m_segmentParams[i2].params,
-										nearestPointIndex,
-										nearestSquareDist,
-										m_ui->snapSizeSpinBox->value(),
-										m_ui->snapSizeSpinBox->value(),
-										true))
+				                        m_segmentParams[i2].params,
+				                        nearestPointIndex,
+				                        nearestSquareDist,
+				                        m_ui->snapSizeSpinBox->value(),
+				                        m_ui->snapSizeSpinBox->value(),
+				                        true))
 				{
 					if (nearestElementSquareDist < 0 || nearestSquareDist < nearestElementSquareDist)
 					{
 						nearestElementSquareDist = nearestSquareDist;
-						nearestPoint = *cloud->getPoint(nearestPointIndex);
+						nearestPoint             = *cloud->getPoint(nearestPointIndex);
 					}
 				}
 			}
 
-			//for each mesh
-			for (size_t m = 0; m < meshes.size(); ++m)
+			// for each mesh
+			for (auto* entity : meshes)
 			{
-				ccGenericMesh* mesh = static_cast<ccGenericMesh*>(meshes[m]);
+				ccGenericMesh* mesh = static_cast<ccGenericMesh*>(entity);
 				if (!mesh->isDisplayedIn(m_associatedWin))
 				{
 					continue;
 				}
 
-				int nearestTriIndex = -1;
-				double nearestSquareDist = 0;
+				int        nearestTriIndex   = -1;
+				double     nearestSquareDist = 0;
 				CCVector3d _nearestPoint;
 
-				if (mesh->trianglePicking(	vj,
-											m_segmentParams[i2].params,
-											nearestTriIndex,
-											nearestSquareDist,
-											_nearestPoint))
+				if (mesh->trianglePicking(vj,
+				                          m_segmentParams[i2].params,
+				                          mesh->isShownAsWire(),
+				                          nearestTriIndex,
+				                          nearestSquareDist,
+				                          _nearestPoint))
 				{
 					if (nearestElementSquareDist < 0 || nearestSquareDist < nearestElementSquareDist)
 					{
 						nearestElementSquareDist = nearestSquareDist;
-						nearestPoint = CCVector3::fromArray(_nearestPoint.u);
+						nearestPoint             = _nearestPoint.toPC();
 					}
 				}
 			}
@@ -263,17 +261,17 @@ ccPolyline* ccTracePolylineTool::polylineOverSampling(unsigned steps) const
 
 			if (pDlg.wasCanceled())
 			{
-				steps = 0; //quick finish ;)
+				steps = 0; // quick finish ;)
 				break;
 			}
 			pDlg.setValue(pDlg.value() + 1);
 		}
 	}
 
-	//add last point
+	// add last point
 	if (!m_poly3D->isClosed())
 	{
-		newVertices->addPoint(*m_poly3DVertices->getPoint(n_verts - 1));
+		newVertices->addPoint(*m_poly3DVertices->getPoint(vertexCount - 1));
 	}
 
 	newVertices->shrinkToFit();
@@ -282,12 +280,12 @@ ccPolyline* ccTracePolylineTool::polylineOverSampling(unsigned steps) const
 	return newPoly;
 }
 
-bool ccTracePolylineTool::linkWith(ccGLWindow* win)
+bool ccTracePolylineTool::linkWith(ccGLWindowInterface* win)
 {
 	assert(m_polyTip);
 	assert(!m_poly3D || !win);
 
-	ccGLWindow* oldWin = m_associatedWin;
+	ccGLWindowInterface* oldWin = m_associatedWin;
 
 	if (!ccOverlayDialog::linkWith(win))
 	{
@@ -297,7 +295,7 @@ bool ccTracePolylineTool::linkWith(ccGLWindow* win)
 	if (oldWin)
 	{
 		oldWin->removeFromOwnDB(m_polyTip);
-		oldWin->disconnect(this);
+		oldWin->signalEmitter()->disconnect(this);
 
 		if (m_polyTip)
 			m_polyTip->setDisplay(nullptr);
@@ -305,16 +303,16 @@ bool ccTracePolylineTool::linkWith(ccGLWindow* win)
 
 	if (m_associatedWin)
 	{
-		connect(m_associatedWin, &ccGLWindow::rightButtonClicked, this, &ccTracePolylineTool::closePolyLine);
-		connect(m_associatedWin, &ccGLWindow::mouseMoved,		  this, &ccTracePolylineTool::updatePolyLineTip);
+		connect(m_associatedWin->signalEmitter(), &ccGLWindowSignalEmitter::rightButtonClicked, this, &ccTracePolylineTool::closePolyLine);
+		connect(m_associatedWin->signalEmitter(), &ccGLWindowSignalEmitter::mouseMoved, this, &ccTracePolylineTool::updatePolyLineTip);
 	}
 
 	return true;
 }
 
 static int s_defaultPickingRadius = 1;
-static int s_overSamplingCount = 1;
-bool ccTracePolylineTool::start()
+static int s_overSamplingCount    = 1;
+bool       ccTracePolylineTool::start()
 {
 	assert(m_polyTip);
 	assert(!m_poly3D);
@@ -331,12 +329,12 @@ bool ccTracePolylineTool::start()
 	{
 		m_pickingHub->removeListener(this);
 	}
-	m_associatedWin->setPickingMode(ccGLWindow::NO_PICKING);
-	m_associatedWin->setInteractionMode(	ccGLWindow::MODE_TRANSFORM_CAMERA
-										|	ccGLWindow::INTERACT_SIG_RB_CLICKED
-										|	ccGLWindow::INTERACT_CTRL_PAN
-										|	ccGLWindow::INTERACT_SIG_MOUSE_MOVED);
-	m_associatedWin->setCursor(Qt::CrossCursor);
+	m_associatedWin->setPickingMode(ccGLWindowInterface::NO_PICKING);
+	m_associatedWin->setInteractionMode(ccGLWindowInterface::MODE_TRANSFORM_CAMERA
+	                                    | ccGLWindowInterface::INTERACT_SIG_RB_CLICKED
+	                                    | ccGLWindowInterface::INTERACT_CTRL_PAN
+	                                    | ccGLWindowInterface::INTERACT_SIG_MOUSE_MOVED);
+	m_associatedWin->setWindowCursor(Qt::CrossCursor);
 
 	m_ui->snapSizeSpinBox->blockSignals(true);
 	m_ui->snapSizeSpinBox->setValue(s_defaultPickingRadius);
@@ -346,7 +344,7 @@ bool ccTracePolylineTool::start()
 	m_ui->oversampleSpinBox->setValue(s_overSamplingCount);
 	m_ui->oversampleSpinBox->blockSignals(false);
 
-	resetLine(); //to reset the GUI
+	resetLine(); // to reset the GUI
 
 	return ccOverlayDialog::start();
 }
@@ -363,19 +361,19 @@ void ccTracePolylineTool::stop(bool accepted)
 	if (m_associatedWin)
 	{
 		m_associatedWin->displayNewMessage("Polyline tracing [OFF]",
-			ccGLWindow::UPPER_CENTER_MESSAGE,
-			false,
-			2,
-			ccGLWindow::MANUAL_SEGMENTATION_MESSAGE);
+		                                   ccGLWindowInterface::UPPER_CENTER_MESSAGE,
+		                                   false,
+		                                   2,
+		                                   ccGLWindowInterface::MANUAL_SEGMENTATION_MESSAGE);
 
 		m_associatedWin->setUnclosable(false);
 		m_associatedWin->removeFromOwnDB(m_polyTip);
-		m_associatedWin->setInteractionMode(ccGLWindow::MODE_TRANSFORM_CAMERA);
-		m_associatedWin->setCursor(Qt::ArrowCursor);
+		m_associatedWin->setInteractionMode(ccGLWindowInterface::MODE_TRANSFORM_CAMERA);
+		m_associatedWin->setWindowCursor(Qt::ArrowCursor);
 	}
 
 	s_defaultPickingRadius = m_ui->snapSizeSpinBox->value();
-	s_overSamplingCount = m_ui->oversampleSpinBox->value();
+	s_overSamplingCount    = m_ui->oversampleSpinBox->value();
 
 	ccOverlayDialog::stop(accepted);
 }
@@ -387,10 +385,10 @@ void ccTracePolylineTool::updatePolyLineTip(int x, int y, Qt::MouseButtons butto
 		assert(false);
 		return;
 	}
-	
+
 	if (buttons != Qt::NoButton)
 	{
-		//nothing to do (just hide the tip)
+		// nothing to do (just hide the tip)
 		if (m_polyTip->isEnabled())
 		{
 			m_polyTip->setEnabled(false);
@@ -401,7 +399,7 @@ void ccTracePolylineTool::updatePolyLineTip(int x, int y, Qt::MouseButtons butto
 
 	if (!m_poly3DVertices || m_poly3DVertices->size() == 0)
 	{
-		//there should be at least one point already picked!
+		// there should be at least one point already picked!
 		return;
 	}
 
@@ -413,19 +411,19 @@ void ccTracePolylineTool::updatePolyLineTip(int x, int y, Qt::MouseButtons butto
 
 	assert(m_polyTip && m_polyTipVertices && m_polyTipVertices->size() == 2);
 
-	//we replace the last point by the new one
+	// we replace the last point by the new one
 	{
-		QPointF pos2D = m_associatedWin->toCenteredGLCoordinates(x, y);
-		CCVector3 P2D(	static_cast<PointCoordinateType>(pos2D.x()),
-						static_cast<PointCoordinateType>(pos2D.y()),
-						0);
+		QPointF   pos2D = m_associatedWin->toCenteredGLCoordinates(x, y);
+		CCVector3 P2D(static_cast<PointCoordinateType>(pos2D.x()),
+		              static_cast<PointCoordinateType>(pos2D.y()),
+		              0);
 
 		CCVector3* lastP = const_cast<CCVector3*>(m_polyTipVertices->getPointPersistentPtr(1));
-		*lastP = P2D;
+		*lastP           = P2D;
 	}
 
-	//just in case (e.g. if the view has been rotated or zoomed)
-	//we also update the first vertex position!
+	// just in case (e.g. if the view has been rotated or zoomed)
+	// we also update the first vertex position!
 	{
 		const CCVector3* P3D = m_poly3DVertices->getPoint(m_poly3DVertices->size() - 1);
 
@@ -436,17 +434,15 @@ void ccTracePolylineTool::updatePolyLineTip(int x, int y, Qt::MouseButtons butto
 		camera.project(*P3D, A2D);
 
 		CCVector3* firstP = const_cast<CCVector3*>(m_polyTipVertices->getPointPersistentPtr(0));
-		*firstP = CCVector3(static_cast<PointCoordinateType>(A2D.x - camera.viewport[2] / 2), //we convert A2D to centered coordinates (no need to apply high DPI scale or anything!)
-							static_cast<PointCoordinateType>(A2D.y - camera.viewport[3] / 2),
-							0);
-
+		*firstP           = CCVector3(static_cast<PointCoordinateType>(A2D.x - camera.viewport[2] / 2), // we convert A2D to centered coordinates (no need to apply high DPI scale or anything!)
+                            static_cast<PointCoordinateType>(A2D.y - camera.viewport[3] / 2),
+                            0);
 	}
 
 	m_polyTip->setEnabled(true);
 
 	m_associatedWin->redraw(true, false);
 }
-
 
 void ccTracePolylineTool::onItemPicked(const PickedItem& pi)
 {
@@ -458,11 +454,11 @@ void ccTracePolylineTool::onItemPicked(const PickedItem& pi)
 
 	if (!pi.entity)
 	{
-		//means that the mouse has been clicked but no point was found!
+		// means that the mouse has been clicked but no point was found!
 		return;
 	}
 
-	//if the 3D polyline doesn't exist yet, we create it
+	// if the 3D polyline doesn't exist yet, we create it
 	if (!m_poly3D || !m_poly3DVertices)
 	{
 		m_poly3DVertices = new ccPointCloud("Vertices", static_cast<unsigned>(ReservedIDs::TRACE_POLYLINE_TOOL_POLYLINE_VERTICES));
@@ -478,18 +474,18 @@ void ccTracePolylineTool::onItemPicked(const PickedItem& pi)
 		ccGenericPointCloud* cloud = ccHObjectCaster::ToGenericPointCloud(pi.entity);
 		if (cloud)
 		{
-			//copy the first clicked entity's global shift & scale
+			// copy the first clicked entity's global shift & scale
 			m_poly3D->copyGlobalShiftAndScale(*cloud);
 		}
 
-		m_segmentParams.resize(0); //just in case
+		m_segmentParams.resize(0); // just in case
 
 		m_associatedWin->addToOwnDB(m_poly3D);
 	}
 
-	//try to add one more point
-	if (	!m_poly3DVertices->reserve(m_poly3DVertices->size() + 1)
-		||	!m_poly3D->reserve(m_poly3DVertices->size() + 1))
+	// try to add one more point
+	if (!m_poly3DVertices->reserve(m_poly3DVertices->size() + 1)
+	    || !m_poly3D->reserve(m_poly3DVertices->size() + 1))
 	{
 		ccLog::Error("Not enough memory");
 		return;
@@ -509,16 +505,16 @@ void ccTracePolylineTool::onItemPicked(const PickedItem& pi)
 	m_poly3D->addPointIndex(m_poly3DVertices->size() - 1);
 	m_segmentParams.emplace_back(m_associatedWin, pi.clickPoint.x(), pi.clickPoint.y());
 
-	//we replace the first point of the tip by this new point
+	// we replace the first point of the tip by this new point
 	{
-		QPointF pos2D = m_associatedWin->toCenteredGLCoordinates(pi.clickPoint.x(), pi.clickPoint.y());
-		CCVector3 P2D(	static_cast<PointCoordinateType>(pos2D.x()),
-						static_cast<PointCoordinateType>(pos2D.y()),
-						0);
+		QPointF   pos2D(pi.clickPoint.x() - m_associatedWin->glWidth() / 2, m_associatedWin->glHeight() / 2 - pi.clickPoint.y());
+		CCVector3 P2D(static_cast<PointCoordinateType>(pos2D.x()),
+		              static_cast<PointCoordinateType>(pos2D.y()),
+		              0);
 
 		CCVector3* firstTipPoint = const_cast<CCVector3*>(m_polyTipVertices->getPointPersistentPtr(0));
-		*firstTipPoint = P2D;
-		m_polyTip->setEnabled(false); //don't need to display it for now
+		*firstTipPoint           = P2D;
+		m_polyTip->setEnabled(false); // don't need to display it for now
 	}
 
 	m_associatedWin->redraw(false, false);
@@ -526,7 +522,7 @@ void ccTracePolylineTool::onItemPicked(const PickedItem& pi)
 
 void ccTracePolylineTool::closePolyLine(int, int)
 {
-	if (!m_poly3D || (QApplication::keyboardModifiers() & Qt::ControlModifier)) //CTRL + right click = panning
+	if (!m_poly3D || (QApplication::keyboardModifiers() & Qt::ControlModifier)) // CTRL + right click = panning
 	{
 		return;
 	}
@@ -534,17 +530,17 @@ void ccTracePolylineTool::closePolyLine(int, int)
 	unsigned vertCount = m_poly3D->size();
 	if (vertCount < 2)
 	{
-		//discard this polyline
+		// discard this polyline
 		resetLine();
 	}
 	else
 	{
-		//hide the tip
+		// hide the tip
 		if (m_polyTip)
 		{
 			m_polyTip->setEnabled(false);
 		}
-		//update the GUI
+		// update the GUI
 		m_ui->validButton->setEnabled(true);
 		m_ui->saveToolButton->setEnabled(true);
 		m_ui->resetToolButton->setEnabled(true);
@@ -553,11 +549,10 @@ void ccTracePolylineTool::closePolyLine(int, int)
 		{
 			m_pickingHub->removeListener(this);
 		}
-		m_associatedWin->setPickingMode(ccGLWindow::NO_PICKING); //no more picking
-		m_done = true;
-
 		if (m_associatedWin)
 		{
+			m_associatedWin->setPickingMode(ccGLWindowInterface::NO_PICKING); // no more picking
+			m_done = true;
 			m_associatedWin->redraw(true, false);
 		}
 	}
@@ -571,33 +566,33 @@ void ccTracePolylineTool::restart(bool reset)
 		{
 			if (m_associatedWin)
 			{
-				//discard this polyline
+				// discard this polyline
 				m_associatedWin->removeFromOwnDB(m_poly3D);
 			}
 			if (m_polyTip)
 			{
-				//hide the tip
+				// hide the tip
 				m_polyTip->setEnabled(false);
 			}
 
 			delete m_poly3D;
 			m_segmentParams.resize(0);
-			//delete m_poly3DVertices;
-			m_poly3D = nullptr;
+			// delete m_poly3DVertices;
+			m_poly3D         = nullptr;
 			m_poly3DVertices = nullptr;
 		}
 		else
 		{
 			if (m_polyTip)
 			{
-				//show the tip
+				// show the tip
 				m_polyTip->setEnabled(true);
 			}
 		}
 	}
 
-	//enable picking
-	if (m_pickingHub && !m_pickingHub->addListener(this, true/*, true, ccGLWindow::POINT_PICKING*/))
+	// enable picking
+	if (m_pickingHub && !m_pickingHub->addListener(this, true /*, true, ccGLWindowInterface::POINT_PICKING*/))
 	{
 		ccLog::Error("The picking mechanism is already in use. Close the tool using it first.");
 	}
@@ -606,7 +601,7 @@ void ccTracePolylineTool::restart(bool reset)
 	{
 		m_associatedWin->redraw(false, false);
 	}
-	
+
 	m_ui->validButton->setEnabled(false);
 	m_ui->saveToolButton->setEnabled(false);
 	m_ui->resetToolButton->setEnabled(false);
@@ -635,24 +630,27 @@ void ccTracePolylineTool::exportLine()
 			delete m_poly3D;
 			m_segmentParams.resize(0);
 			m_poly3DVertices = nullptr;
-			m_poly3D = poly;
+			m_poly3D         = poly;
 		}
 		else
 		{
 			ccLog::Error("Oversampling failed");
-			m_associatedWin->addToOwnDB(m_poly3D);
+			if (m_associatedWin)
+			{
+				m_associatedWin->addToOwnDB(m_poly3D);
+			}
 			return;
 		}
 	}
 	else
 	{
-		//update the IDs as we don't want to export an object with a reserved ID!
+		// update the IDs as we don't want to export an object with a reserved ID!
 		m_poly3D->setUniqueID(ccObject::GetNextUniqueID());
 		m_poly3DVertices->setUniqueID(ccObject::GetNextUniqueID());
 	}
 
 	m_poly3D->enableTempColor(false);
-	m_poly3D->setDisplay(m_associatedWin); //just in case
+	m_poly3D->setDisplay(m_associatedWin); // just in case
 	if (MainWindow::TheInstance())
 	{
 		MainWindow::TheInstance()->addToDB(m_poly3D);
@@ -666,7 +664,7 @@ void ccTracePolylineTool::exportLine()
 	m_segmentParams.resize(0);
 	m_poly3DVertices = nullptr;
 
-	resetLine(); //to update the GUI
+	resetLine(); // to update the GUI
 }
 
 void ccTracePolylineTool::apply()
@@ -693,7 +691,7 @@ void ccTracePolylineTool::onWidthSizeChanged(int width)
 	{
 		m_polyTip->setWidth(width);
 	}
-	
+
 	if (m_associatedWin)
 	{
 		m_associatedWin->redraw(m_poly3D == nullptr, false);

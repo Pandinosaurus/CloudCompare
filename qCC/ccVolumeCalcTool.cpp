@@ -1,79 +1,85 @@
-//##########################################################################
-//#                                                                        #
-//#                              CLOUDCOMPARE                              #
-//#                                                                        #
-//#  This program is free software; you can redistribute it and/or modify  #
-//#  it under the terms of the GNU General Public License as published by  #
-//#  the Free Software Foundation; version 2 or later of the License.      #
-//#                                                                        #
-//#  This program is distributed in the hope that it will be useful,       #
-//#  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
-//#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
-//#  GNU General Public License for more details.                          #
-//#                                                                        #
-//#          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
-//#                                                                        #
-//##########################################################################
+// ##########################################################################
+// #                                                                        #
+// #                              CLOUDCOMPARE                              #
+// #                                                                        #
+// #  This program is free software; you can redistribute it and/or modify  #
+// #  it under the terms of the GNU General Public License as published by  #
+// #  the Free Software Foundation; version 2 or later of the License.      #
+// #                                                                        #
+// #  This program is distributed in the hope that it will be useful,       #
+// #  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
+// #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
+// #  GNU General Public License for more details.                          #
+// #                                                                        #
+// #          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
+// #                                                                        #
+// ##########################################################################
 
 #include "ccVolumeCalcTool.h"
-#include "ui_volumeCalcDlg.h"
 
-//Local
-#include "ccPersistentSettings.h"
+// Local
 #include "mainwindow.h"
 
-//qCC_db
+// Ui
+#include <ui_volumeCalcDlg.h>
+
+// CCPluginAPI
+#include <ccPersistentSettings.h>
+
+// qCC_db
 #include <ccPointCloud.h>
 #include <ccProgressDialog.h>
 #include <ccScalarField.h>
 
-//qCC_gl
-#include <ccGLWindow.h>
+// qCC_glWindow
+#include <ccGLWindowInterface.h>
 
-//Qt
+// Qt
 #include <QClipboard>
 #include <QMessageBox>
 #include <QSettings>
 
-//System
+// System
 #include <cassert>
 
-ccVolumeCalcTool::ccVolumeCalcTool(ccGenericPointCloud* cloud1, ccGenericPointCloud* cloud2, QWidget* parent/*=nullptr*/)
-	: QDialog(parent, Qt::WindowMaximizeButtonHint | Qt::WindowCloseButtonHint)
-	, cc2Point5DimEditor()
-	, m_cloud1(cloud1)
-	, m_cloud2(cloud2)
-	, m_ui( new Ui::VolumeCalcDialog )
+ccVolumeCalcTool::ccVolumeCalcTool(ccGenericPointCloud* cloud1, ccGenericPointCloud* cloud2, QWidget* parent /*=nullptr*/)
+    : QDialog(parent, Qt::WindowMaximizeButtonHint | Qt::WindowCloseButtonHint)
+    , cc2Point5DimEditor()
+    , m_cloud1(cloud1)
+    , m_cloud2(cloud2)
+    , m_ui(std::make_unique<Ui::VolumeCalcDialog>())
 {
 	m_ui->setupUi(this);
 
-	connect(m_ui->buttonBox,					&QDialogButtonBox::accepted,													this,	&ccVolumeCalcTool::saveSettingsAndAccept);
-	connect(m_ui->buttonBox,					&QDialogButtonBox::rejected,													this,	&ccVolumeCalcTool::reject);
-	connect(m_ui->gridStepDoubleSpinBox,		static_cast<void (QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged),	this,	&ccVolumeCalcTool::updateGridInfo);
-	connect(m_ui->gridStepDoubleSpinBox,		static_cast<void (QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged),	this,	&ccVolumeCalcTool::gridOptionChanged);
-	connect(m_ui->groundEmptyValueDoubleSpinBox,static_cast<void (QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged),	this,	&ccVolumeCalcTool::gridOptionChanged);
-	connect(m_ui->ceilEmptyValueDoubleSpinBox,	static_cast<void (QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged),	this,	&ccVolumeCalcTool::gridOptionChanged);
-	connect(m_ui->projDimComboBox,				static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),			this,	&ccVolumeCalcTool::projectionDirChanged);
-	connect(m_ui->updatePushButton,				&QPushButton::clicked,															this,	&ccVolumeCalcTool::updateGridAndDisplay);
-	connect(m_ui->heightProjectionComboBox,		static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),			this,	&ccVolumeCalcTool::gridOptionChanged);
-	connect(m_ui->fillGroundEmptyCellsComboBox,	static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),			this,	&ccVolumeCalcTool::groundFillEmptyCellStrategyChanged);
-	connect(m_ui->fillCeilEmptyCellsComboBox,	static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),			this,	&ccVolumeCalcTool::ceilFillEmptyCellStrategyChanged);
-	connect(m_ui->swapToolButton,				&QToolButton::clicked,															this,	&ccVolumeCalcTool::swapRoles);
-	connect(m_ui->groundComboBox,				static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),			this,	&ccVolumeCalcTool::groundSourceChanged);
-	connect(m_ui->ceilComboBox,					static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),			this,	&ccVolumeCalcTool::ceilSourceChanged);
-	connect(m_ui->clipboardPushButton,			&QPushButton::clicked,															this,	&ccVolumeCalcTool::exportToClipboard);
-	connect(m_ui->exportGridPushButton,			&QPushButton::clicked,															this,	&ccVolumeCalcTool::exportGridAsCloud);
-	connect(m_ui->precisionSpinBox,				static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),					this,	&ccVolumeCalcTool::setDisplayedNumberPrecision);
+	connect(m_ui->buttonBox, &QDialogButtonBox::accepted, this, &ccVolumeCalcTool::saveSettingsAndAccept);
+	connect(m_ui->buttonBox, &QDialogButtonBox::rejected, this, &ccVolumeCalcTool::reject);
+	connect(m_ui->gridStepDoubleSpinBox, qOverload<double>(&QDoubleSpinBox::valueChanged), this, &ccVolumeCalcTool::updateGridInfo);
+	connect(m_ui->gridStepDoubleSpinBox, qOverload<double>(&QDoubleSpinBox::valueChanged), this, &ccVolumeCalcTool::gridOptionChanged);
+	connect(m_ui->groundMaxEdgeLengthDoubleSpinBox, qOverload<double>(&QDoubleSpinBox::valueChanged), this, &ccVolumeCalcTool::gridOptionChanged);
+	connect(m_ui->ceilMaxEdgeLengthDoubleSpinBox, qOverload<double>(&QDoubleSpinBox::valueChanged), this, &ccVolumeCalcTool::gridOptionChanged);
+	connect(m_ui->groundEmptyValueDoubleSpinBox, qOverload<double>(&QDoubleSpinBox::valueChanged), this, &ccVolumeCalcTool::gridOptionChanged);
+	connect(m_ui->ceilEmptyValueDoubleSpinBox, qOverload<double>(&QDoubleSpinBox::valueChanged), this, &ccVolumeCalcTool::gridOptionChanged);
+	connect(m_ui->projDimComboBox, qOverload<int>(&QComboBox::currentIndexChanged), this, &ccVolumeCalcTool::projectionDirChanged);
+	connect(m_ui->updatePushButton, &QPushButton::clicked, this, &ccVolumeCalcTool::updateGridAndDisplay);
+	connect(m_ui->heightProjectionComboBox, qOverload<int>(&QComboBox::currentIndexChanged), this, &ccVolumeCalcTool::gridOptionChanged);
+	connect(m_ui->fillGroundEmptyCellsComboBox, qOverload<int>(&QComboBox::currentIndexChanged), this, &ccVolumeCalcTool::groundFillEmptyCellStrategyChanged);
+	connect(m_ui->fillCeilEmptyCellsComboBox, qOverload<int>(&QComboBox::currentIndexChanged), this, &ccVolumeCalcTool::ceilFillEmptyCellStrategyChanged);
+	connect(m_ui->swapToolButton, &QToolButton::clicked, this, &ccVolumeCalcTool::swapRoles);
+	connect(m_ui->groundComboBox, qOverload<int>(&QComboBox::currentIndexChanged), this, &ccVolumeCalcTool::groundSourceChanged);
+	connect(m_ui->ceilComboBox, qOverload<int>(&QComboBox::currentIndexChanged), this, &ccVolumeCalcTool::ceilSourceChanged);
+	connect(m_ui->clipboardPushButton, &QPushButton::clicked, this, &ccVolumeCalcTool::exportToClipboard);
+	connect(m_ui->exportGridPushButton, &QPushButton::clicked, this, &ccVolumeCalcTool::exportGridAsCloud);
+	connect(m_ui->precisionSpinBox, qOverload<int>(&QSpinBox::valueChanged), this, &ccVolumeCalcTool::setDisplayedNumberPrecision);
 
 	if (m_cloud1 && !m_cloud2)
 	{
-		//the existing cloud is always the second by default
+		// the existing cloud is always the second by default
 		std::swap(m_cloud1, m_cloud2);
 	}
 	assert(m_cloud2);
 
-	//custom bbox editor
-	ccBBox gridBBox = m_cloud1 ? m_cloud1->getOwnBB() : ccBBox(); 
+	// custom bbox editor
+	ccBBox gridBBox = m_cloud1 ? m_cloud1->getOwnBB() : ccBBox();
 	if (m_cloud2)
 	{
 		gridBBox += m_cloud2->getOwnBB();
@@ -101,16 +107,16 @@ ccVolumeCalcTool::ccVolumeCalcTool(ccGenericPointCloud* cloud1, ccGenericPointCl
 		m_ui->ceilComboBox->addItem(m_cloud2->getName());
 	}
 	assert(m_ui->groundComboBox->count() >= 2);
-	m_ui->groundComboBox->setCurrentIndex(m_ui->groundComboBox->count()-2);
-	m_ui->ceilComboBox->setCurrentIndex(m_ui->ceilComboBox->count()-1);
+	m_ui->groundComboBox->setCurrentIndex(m_ui->groundComboBox->count() - 2);
+	m_ui->ceilComboBox->setCurrentIndex(m_ui->ceilComboBox->count() - 1);
 
-	//add window
+	// add window
 	create2DView(m_ui->mapFrame);
 	if (m_glWindow)
 	{
-		ccGui::ParamStruct params = m_glWindow->getDisplayParameters();
+		ccGui::ParamStruct params      = m_glWindow->getDisplayParameters();
 		params.colorScaleShowHistogram = false;
-		params.displayedNumPrecision = m_ui->precisionSpinBox->value();
+		params.displayedNumPrecision   = m_ui->precisionSpinBox->value();
 		m_glWindow->setDisplayParameters(params, true);
 	}
 
@@ -121,23 +127,20 @@ ccVolumeCalcTool::ccVolumeCalcTool(ccGenericPointCloud* cloud1, ccGenericPointCl
 	gridIsUpToDate(false);
 }
 
-ccVolumeCalcTool::~ccVolumeCalcTool()
-{
-	delete m_ui;
-}
+ccVolumeCalcTool::~ccVolumeCalcTool() = default;
 
 void ccVolumeCalcTool::setDisplayedNumberPrecision(int precision)
 {
-	//update window
+	// update window
 	if (m_glWindow)
 	{
-		ccGui::ParamStruct params = m_glWindow->getDisplayParameters();
+		ccGui::ParamStruct params    = m_glWindow->getDisplayParameters();
 		params.displayedNumPrecision = precision;
 		m_glWindow->setDisplayParameters(params, true);
 		m_glWindow->redraw(true, false);
 	}
 
-	//update report
+	// update report
 	if (m_ui->clipboardPushButton->isEnabled())
 	{
 		outputReport(m_lastReport);
@@ -158,18 +161,21 @@ void ccVolumeCalcTool::ceilSourceChanged(int)
 
 void ccVolumeCalcTool::swapRoles()
 {
-	int sourceIndex = m_ui->ceilComboBox->currentIndex();
-	int emptyCellStrat = m_ui->fillCeilEmptyCellsComboBox->currentIndex();
+	int    sourceIndex    = m_ui->ceilComboBox->currentIndex();
+	int    emptyCellStrat = m_ui->fillCeilEmptyCellsComboBox->currentIndex();
 	double emptyCellValue = m_ui->ceilEmptyValueDoubleSpinBox->value();
+	double maxEdgeLength  = m_ui->ceilMaxEdgeLengthDoubleSpinBox->value();
 
 	m_ui->ceilComboBox->setCurrentIndex(m_ui->groundComboBox->currentIndex());
 	m_ui->fillCeilEmptyCellsComboBox->setCurrentIndex(m_ui->fillGroundEmptyCellsComboBox->currentIndex());
 	m_ui->ceilEmptyValueDoubleSpinBox->setValue(m_ui->groundEmptyValueDoubleSpinBox->value());
-	
+	m_ui->ceilEmptyValueDoubleSpinBox->setValue(m_ui->groundMaxEdgeLengthDoubleSpinBox->value());
+
 	m_ui->groundComboBox->setCurrentIndex(sourceIndex);
 	m_ui->fillGroundEmptyCellsComboBox->setCurrentIndex(emptyCellStrat);
 	m_ui->groundEmptyValueDoubleSpinBox->setValue(emptyCellValue);
-	
+	m_ui->groundMaxEdgeLengthDoubleSpinBox->setValue(maxEdgeLength);
+
 	gridIsUpToDate(false);
 }
 
@@ -204,15 +210,15 @@ unsigned char ccVolumeCalcTool::getProjectionDimension() const
 
 void ccVolumeCalcTool::sfProjectionTypeChanged(int index)
 {
-	Q_UNUSED( index )
-	
+	Q_UNUSED(index)
+
 	gridIsUpToDate(false);
 }
 
 void ccVolumeCalcTool::projectionDirChanged(int dir)
 {
-	Q_UNUSED( dir )
-	
+	Q_UNUSED(dir)
+
 	updateGridInfo();
 	gridIsUpToDate(false);
 }
@@ -221,8 +227,11 @@ void ccVolumeCalcTool::groundFillEmptyCellStrategyChanged(int)
 {
 	ccRasterGrid::EmptyCellFillOption fillEmptyCellsStrategy = getFillEmptyCellsStrategy(m_ui->fillGroundEmptyCellsComboBox);
 
-	m_ui->groundEmptyValueDoubleSpinBox->setEnabled( (m_ui->groundComboBox->currentIndex() == 0)
-													 || (fillEmptyCellsStrategy == ccRasterGrid::FILL_CUSTOM_HEIGHT) );
+	m_ui->groundEmptyValueDoubleSpinBox->setEnabled((m_ui->groundComboBox->currentIndex() == 0)
+	                                                || (fillEmptyCellsStrategy == ccRasterGrid::FILL_CUSTOM_HEIGHT));
+
+	m_ui->groundMaxEdgeLengthDoubleSpinBox->setEnabled(fillEmptyCellsStrategy == ccRasterGrid::INTERPOLATE_DELAUNAY);
+
 	gridIsUpToDate(false);
 }
 
@@ -230,8 +239,11 @@ void ccVolumeCalcTool::ceilFillEmptyCellStrategyChanged(int)
 {
 	ccRasterGrid::EmptyCellFillOption fillEmptyCellsStrategy = getFillEmptyCellsStrategy(m_ui->fillCeilEmptyCellsComboBox);
 
-	m_ui->ceilEmptyValueDoubleSpinBox->setEnabled( (m_ui->ceilComboBox->currentIndex() == 0)
-												   ||	(fillEmptyCellsStrategy == ccRasterGrid::FILL_CUSTOM_HEIGHT) );
+	m_ui->ceilEmptyValueDoubleSpinBox->setEnabled((m_ui->ceilComboBox->currentIndex() == 0)
+	                                              || (fillEmptyCellsStrategy == ccRasterGrid::FILL_CUSTOM_HEIGHT));
+
+	m_ui->ceilMaxEdgeLengthDoubleSpinBox->setEnabled(fillEmptyCellsStrategy == ccRasterGrid::INTERPOLATE_DELAUNAY);
+
 	gridIsUpToDate(false);
 }
 
@@ -251,7 +263,7 @@ ccRasterGrid::ProjectionType ccVolumeCalcTool::getTypeOfProjection() const
 	case 2:
 		return ccRasterGrid::PROJ_MAXIMUM_VALUE;
 	default:
-		//shouldn't be possible for this option!
+		// shouldn't be possible for this option!
 		assert(false);
 	}
 
@@ -262,14 +274,16 @@ void ccVolumeCalcTool::loadSettings()
 {
 	QSettings settings;
 	settings.beginGroup(ccPS::VolumeCalculation());
-	int projType				= settings.value("ProjectionType", m_ui->heightProjectionComboBox->currentIndex()).toInt();
-	int projDim					= settings.value("ProjectionDim", m_ui->projDimComboBox->currentIndex()).toInt();
-	int groundFillStrategy		= settings.value("gFillStrategy", m_ui->fillGroundEmptyCellsComboBox->currentIndex()).toInt();
-	int ceilFillStrategy		= settings.value("cFillStrategy", m_ui->fillCeilEmptyCellsComboBox->currentIndex()).toInt();
-	double step					= settings.value("GridStep", m_ui->gridStepDoubleSpinBox->value()).toDouble();
-	double groundEmptyHeight	= settings.value("gEmptyCellsHeight", m_ui->groundEmptyValueDoubleSpinBox->value()).toDouble();
-	double ceilEmptyHeight		= settings.value("cEmptyCellsHeight", m_ui->ceilEmptyValueDoubleSpinBox->value()).toDouble();
-	int precision				= settings.value("NumPrecision", m_ui->precisionSpinBox->value()).toInt();
+	int    projType            = settings.value("ProjectionType", m_ui->heightProjectionComboBox->currentIndex()).toInt();
+	int    projDim             = settings.value("ProjectionDim", m_ui->projDimComboBox->currentIndex()).toInt();
+	int    groundFillStrategy  = settings.value("gFillStrategy", m_ui->fillGroundEmptyCellsComboBox->currentIndex()).toInt();
+	int    ceilFillStrategy    = settings.value("cFillStrategy", m_ui->fillCeilEmptyCellsComboBox->currentIndex()).toInt();
+	double step                = settings.value("GridStep", m_ui->gridStepDoubleSpinBox->value()).toDouble();
+	double groundEmptyHeight   = settings.value("gEmptyCellsHeight", m_ui->groundEmptyValueDoubleSpinBox->value()).toDouble();
+	double groundMaxEdgeLength = settings.value("gMaxEdgeLength", m_ui->groundMaxEdgeLengthDoubleSpinBox->value()).toDouble();
+	double ceilEmptyHeight     = settings.value("cEmptyCellsHeight", m_ui->ceilEmptyValueDoubleSpinBox->value()).toDouble();
+	double ceilMaxEdgeLength   = settings.value("cMaxEdgeLength", m_ui->ceilMaxEdgeLengthDoubleSpinBox->value()).toDouble();
+	int    precision           = settings.value("NumPrecision", m_ui->precisionSpinBox->value()).toInt();
 	settings.endGroup();
 
 	m_ui->gridStepDoubleSpinBox->setValue(step);
@@ -277,7 +291,9 @@ void ccVolumeCalcTool::loadSettings()
 	m_ui->fillGroundEmptyCellsComboBox->setCurrentIndex(groundFillStrategy);
 	m_ui->fillCeilEmptyCellsComboBox->setCurrentIndex(ceilFillStrategy);
 	m_ui->groundEmptyValueDoubleSpinBox->setValue(groundEmptyHeight);
+	m_ui->groundMaxEdgeLengthDoubleSpinBox->setValue(groundMaxEdgeLength);
 	m_ui->ceilEmptyValueDoubleSpinBox->setValue(ceilEmptyHeight);
+	m_ui->ceilMaxEdgeLengthDoubleSpinBox->setValue(ceilMaxEdgeLength);
 	m_ui->projDimComboBox->setCurrentIndex(projDim);
 	m_ui->precisionSpinBox->setValue(precision);
 }
@@ -298,7 +314,9 @@ void ccVolumeCalcTool::saveSettings()
 	settings.setValue("cFillStrategy", m_ui->fillCeilEmptyCellsComboBox->currentIndex());
 	settings.setValue("GridStep", m_ui->gridStepDoubleSpinBox->value());
 	settings.setValue("gEmptyCellsHeight", m_ui->groundEmptyValueDoubleSpinBox->value());
+	settings.setValue("gMaxEdgeLength", m_ui->groundMaxEdgeLengthDoubleSpinBox->value());
 	settings.setValue("cEmptyCellsHeight", m_ui->ceilEmptyValueDoubleSpinBox->value());
+	settings.setValue("cMaxEdgeLength", m_ui->ceilMaxEdgeLengthDoubleSpinBox->value());
 	settings.setValue("NumPrecision", m_ui->precisionSpinBox->value());
 	settings.endGroup();
 }
@@ -307,12 +325,12 @@ void ccVolumeCalcTool::gridIsUpToDate(bool state)
 {
 	if (state)
 	{
-		//standard button
+		// standard button
 		m_ui->updatePushButton->setStyleSheet(QString());
 	}
 	else
 	{
-		//red button
+		// red button
 		m_ui->updatePushButton->setStyleSheet("color: white; background-color:red;");
 	}
 	m_ui->updatePushButton->setDisabled(state);
@@ -325,10 +343,10 @@ void ccVolumeCalcTool::gridIsUpToDate(bool state)
 	}
 }
 
-ccPointCloud* ccVolumeCalcTool::ConvertGridToCloud(	ccRasterGrid& grid,
-													const ccBBox& gridBox,
-													unsigned char vertDim,
-													bool exportToOriginalCS)
+ccPointCloud* ccVolumeCalcTool::ConvertGridToCloud(ccRasterGrid& grid,
+                                                   const ccBBox& gridBox,
+                                                   unsigned char vertDim,
+                                                   bool          exportToOriginalCS)
 {
 	assert(gridBox.isValid());
 	assert(vertDim < 3);
@@ -336,27 +354,29 @@ ccPointCloud* ccVolumeCalcTool::ConvertGridToCloud(	ccRasterGrid& grid,
 	ccPointCloud* rasterCloud = nullptr;
 	try
 	{
-		//we only compute the default 'height' layer
-		std::vector<ccRasterGrid::ExportableFields> exportedFields;
-		exportedFields.push_back(ccRasterGrid::PER_CELL_HEIGHT);
+		// we only compute the default 'height' layer
+		std::vector<ccRasterGrid::ExportableFields> exportedStatistics(1);
+		exportedStatistics.front() = ccRasterGrid::PER_CELL_VALUE;
 
-		rasterCloud = grid.convertToCloud(exportedFields,
-			false,
-			false,
-			false,
-			false,
-			nullptr,
-			vertDim,
-			gridBox,
-			false,
-			std::numeric_limits<double>::quiet_NaN(),
-			exportToOriginalCS);
+		rasterCloud = grid.convertToCloud(true,
+		                                  false,
+		                                  exportedStatistics,
+		                                  false,
+		                                  false,
+		                                  false,
+		                                  false,
+		                                  nullptr,
+		                                  vertDim,
+		                                  gridBox,
+		                                  0,
+		                                  exportToOriginalCS,
+		                                  false);
 
 		if (rasterCloud && rasterCloud->hasScalarFields())
 		{
 			rasterCloud->showSF(true);
 			rasterCloud->setCurrentDisplayedScalarField(0);
-			ccScalarField* sf = static_cast<ccScalarField*>(rasterCloud->getScalarField(0));
+			auto sf = rasterCloud->getCCScalarField(0);
 			assert(sf);
 			sf->setName("Relative height");
 			sf->setSymmetricalScale(sf->getMin() < 0 && sf->getMax() > 0);
@@ -381,18 +401,21 @@ ccPointCloud* ccVolumeCalcTool::convertGridToCloud(bool exportToOriginalCS) cons
 	ccPointCloud* rasterCloud = nullptr;
 	try
 	{
-		//we only compute the default 'height' layer
-		std::vector<ccRasterGrid::ExportableFields> exportedFields;
-		exportedFields.push_back(ccRasterGrid::PER_CELL_HEIGHT);
-		rasterCloud = cc2Point5DimEditor::convertGridToCloud(	exportedFields,
-																false,
-																false,
-																false,
-																false,
-																nullptr,
-																false,
-																std::numeric_limits<double>::quiet_NaN(),
-																exportToOriginalCS);
+		// we only compute the default 'height' layer
+		std::vector<ccRasterGrid::ExportableFields> exportedStatistics(1);
+		exportedStatistics.front() = ccRasterGrid::PER_CELL_VALUE;
+		rasterCloud                = cc2Point5DimEditor::convertGridToCloud(true,
+                                                             false,
+                                                             exportedStatistics,
+                                                             false,
+                                                             false,
+                                                             false,
+                                                             false,
+                                                             nullptr,
+                                                             0.0,
+                                                             exportToOriginalCS,
+                                                             false,
+                                                             nullptr);
 
 		if (rasterCloud)
 		{
@@ -400,16 +423,16 @@ ccPointCloud* ccVolumeCalcTool::convertGridToCloud(bool exportToOriginalCS) cons
 			{
 				rasterCloud->showSF(true);
 				rasterCloud->setCurrentDisplayedScalarField(0);
-				ccScalarField* sf = static_cast<ccScalarField*>(rasterCloud->getScalarField(0));
+				auto sf = rasterCloud->getCCScalarField(0);
 				assert(sf);
 				sf->setName("Relative height");
 				sf->setSymmetricalScale(sf->getMin() < 0 && sf->getMax() > 0);
 				rasterCloud->showSFColorsScale(true);
 			}
 
-			//keep Global Shift & Scale
+			// keep Global Shift & Scale
 			auto ground = getGroundCloud();
-			auto ceil = getCeilCloud();
+			auto ceil   = getCeilCloud();
 
 			if (ground.first && ground.first->isShifted())
 			{
@@ -439,7 +462,7 @@ void ccVolumeCalcTool::updateGridAndDisplay()
 	bool success = updateGrid();
 	if (success && m_glWindow)
 	{
-		//convert grid to point cloud
+		// convert grid to point cloud
 		if (m_rasterCloud)
 		{
 			m_glWindow->removeFromOwnDB(m_rasterCloud);
@@ -480,7 +503,7 @@ QString ccVolumeCalcTool::ReportInfo::toText(int precision) const
 	reportText << QString("    ground = %1%").arg(groundNonMatchingPercent, 0, 'f', 1);
 	reportText << QString("    ceil = %1%").arg(ceilNonMatchingPercent, 0, 'f', 1);
 	reportText << QString("Average neighbors per cell: %1 / 8.0").arg(averageNeighborsPerCell, 0, 'f', 1);
-	
+
 	return reportText.join("\n");
 }
 
@@ -490,7 +513,7 @@ void ccVolumeCalcTool::outputReport(const ReportInfo& info)
 
 	m_ui->reportPlainTextEdit->setPlainText(info.toText(precision));
 
-	//below 7 neighbors per cell, at least one of the cloud is very sparse!
+	// below 7 neighbors per cell, at least one of the cloud is very sparse!
 	m_ui->spareseWarningLabel->setVisible(info.averageNeighborsPerCell < 7.0f);
 
 	m_lastReport = info;
@@ -510,26 +533,28 @@ bool SendError(const QString& message, QWidget* parentWidget)
 	return false;
 }
 
-bool ccVolumeCalcTool::ComputeVolume(	ccRasterGrid& grid,
-										ccGenericPointCloud* ground,
-										ccGenericPointCloud* ceil,
-										const ccBBox& gridBox,
-										unsigned char vertDim,
-										double gridStep,
-										unsigned gridWidth,
-										unsigned gridHeight,
-										ccRasterGrid::ProjectionType projectionType,
-										ccRasterGrid::EmptyCellFillOption groundEmptyCellFillStrategy,
-										ccRasterGrid::EmptyCellFillOption ceilEmptyCellFillStrategy,
-										ccVolumeCalcTool::ReportInfo& reportInfo,
-										double groundHeight = std::numeric_limits<double>::quiet_NaN(),
-										double ceilHeight = std::numeric_limits<double>::quiet_NaN(),
-										QWidget* parentWidget/*=0*/)
+bool ccVolumeCalcTool::ComputeVolume(ccRasterGrid&                     grid,
+                                     ccGenericPointCloud*              ground,
+                                     ccGenericPointCloud*              ceil,
+                                     const ccBBox&                     gridBox,
+                                     unsigned char                     vertDim,
+                                     double                            gridStep,
+                                     unsigned                          gridWidth,
+                                     unsigned                          gridHeight,
+                                     ccRasterGrid::ProjectionType      projectionType,
+                                     ccRasterGrid::EmptyCellFillOption groundEmptyCellFillStrategy,
+                                     double                            groundMaxEdgeLength,
+                                     ccRasterGrid::EmptyCellFillOption ceilEmptyCellFillStrategy,
+                                     double                            ceilMaxEdgeLength,
+                                     ccVolumeCalcTool::ReportInfo&     reportInfo,
+                                     double                            groundHeight = std::numeric_limits<double>::quiet_NaN(),
+                                     double                            ceilHeight   = std::numeric_limits<double>::quiet_NaN(),
+                                     QWidget*                          parentWidget /*=nullptr*/)
 {
-	if (	gridStep <= 1.0e-8
-		||	gridWidth == 0
-		||	gridHeight == 0
-		||	vertDim > 2)
+	if (gridStep <= 1.0e-8
+	    || gridWidth == 0
+	    || gridHeight == 0
+	    || vertDim > 2)
 	{
 		assert(false);
 		ccLog::Warning("[Volume] Invalid input parameters");
@@ -549,7 +574,7 @@ bool ccVolumeCalcTool::ComputeVolume(	ccRasterGrid& grid,
 		return false;
 	}
 
-	//grid size
+	// grid size
 	unsigned gridTotalSize = gridWidth * gridHeight;
 	if (gridTotalSize == 1)
 	{
@@ -562,19 +587,19 @@ bool ccVolumeCalcTool::ComputeVolume(	ccRasterGrid& grid,
 			return false;
 	}
 
-	//memory allocation
-	CCVector3d minCorner = CCVector3d::fromArray(gridBox.minCorner().u);
+	// memory allocation
+	CCVector3d minCorner = gridBox.minCorner();
 	if (!grid.init(gridWidth, gridHeight, gridStep, minCorner))
 	{
-		//not enough memory
+		// not enough memory
 		return SendError("Not enough memory", parentWidget);
 	}
 
-	//progress dialog
-	QScopedPointer<ccProgressDialog> pDlg(nullptr);
+	// progress dialog
+	std::unique_ptr<ccProgressDialog> pDlg(nullptr);
 	if (parentWidget)
 	{
-		pDlg.reset(new ccProgressDialog(true, parentWidget));
+		pDlg = std::make_unique<ccProgressDialog>(true, parentWidget);
 	}
 
 	ccRasterGrid groundRaster;
@@ -582,16 +607,35 @@ bool ccVolumeCalcTool::ComputeVolume(	ccRasterGrid& grid,
 	{
 		if (!groundRaster.init(gridWidth, gridHeight, gridStep, minCorner))
 		{
-			//not enough memory
+			// not enough memory
 			return SendError("Not enough memory", parentWidget);
 		}
 
-		if (groundRaster.fillWith(	ground,
-									vertDim,
-									projectionType,
-									groundEmptyCellFillStrategy == ccRasterGrid::INTERPOLATE,
-									ccRasterGrid::INVALID_PROJECTION_TYPE,
-									pDlg.data()))
+		ccRasterGrid::InterpolationType           interpolationType = ccRasterGrid::InterpolationTypeFromEmptyCellFillOption(groundEmptyCellFillStrategy);
+		ccRasterGrid::DelaunayInterpolationParams dInterpParams;
+		void*                                     interpolationParams = nullptr;
+		switch (interpolationType)
+		{
+		case ccRasterGrid::InterpolationType::DELAUNAY:
+			dInterpParams.maxEdgeLength = groundMaxEdgeLength;
+			interpolationParams         = (void*)&dInterpParams;
+			break;
+		case ccRasterGrid::InterpolationType::KRIGING:
+			// not supported yet
+			assert(false);
+			break;
+		default:
+			// do nothing
+			break;
+		}
+
+		if (groundRaster.fillWith(ground,
+		                          vertDim,
+		                          projectionType,
+		                          interpolationType,
+		                          interpolationParams,
+		                          ccRasterGrid::INVALID_PROJECTION_TYPE,
+		                          pDlg.get()))
 		{
 			groundRaster.fillEmptyCells(groundEmptyCellFillStrategy, groundHeight);
 			ccLog::Print(QString("[Volume] Ground raster grid: size: %1 x %2 / heights: [%3 ; %4]").arg(groundRaster.width).arg(groundRaster.height).arg(groundRaster.minHeight).arg(groundRaster.maxHeight));
@@ -602,22 +646,41 @@ bool ccVolumeCalcTool::ComputeVolume(	ccRasterGrid& grid,
 		}
 	}
 
-	//ceil
+	// ceil
 	ccRasterGrid ceilRaster;
 	if (ceil)
 	{
 		if (!ceilRaster.init(gridWidth, gridHeight, gridStep, minCorner))
 		{
-			//not enough memory
+			// not enough memory
 			return SendError("Not enough memory", parentWidget);
 		}
 
+		ccRasterGrid::InterpolationType           interpolationType = ccRasterGrid::InterpolationTypeFromEmptyCellFillOption(ceilEmptyCellFillStrategy);
+		ccRasterGrid::DelaunayInterpolationParams dInterpParams;
+		void*                                     interpolationParams = nullptr;
+		switch (interpolationType)
+		{
+		case ccRasterGrid::InterpolationType::DELAUNAY:
+			dInterpParams.maxEdgeLength = ceilMaxEdgeLength;
+			interpolationParams         = (void*)&dInterpParams;
+			break;
+		case ccRasterGrid::InterpolationType::KRIGING:
+			// not supported yet
+			assert(false);
+			break;
+		default:
+			// do nothing
+			break;
+		}
+
 		if (ceilRaster.fillWith(ceil,
-								vertDim,
-								projectionType,
-								ceilEmptyCellFillStrategy == ccRasterGrid::INTERPOLATE,
-								ccRasterGrid::INVALID_PROJECTION_TYPE,
-								pDlg.data()))
+		                        vertDim,
+		                        projectionType,
+		                        interpolationType,
+		                        interpolationParams,
+		                        ccRasterGrid::INVALID_PROJECTION_TYPE,
+		                        pDlg.get()))
 		{
 			ceilRaster.fillEmptyCells(ceilEmptyCellFillStrategy, ceilHeight);
 			ccLog::Print(QString("[Volume] Ceil raster grid: size: %1 x %2 / heights: [%3 ; %4]").arg(ceilRaster.width).arg(ceilRaster.height).arg(ceilRaster.minHeight).arg(ceilRaster.maxHeight));
@@ -628,7 +691,7 @@ bool ccVolumeCalcTool::ComputeVolume(	ccRasterGrid& grid,
 		}
 	}
 
-	//update grid and compute volume
+	// update grid and compute volume
 	{
 		if (pDlg)
 		{
@@ -638,13 +701,13 @@ bool ccVolumeCalcTool::ComputeVolume(	ccRasterGrid& grid,
 			pDlg->show();
 			QCoreApplication::processEvents();
 		}
-		CCCoreLib::NormalizedProgress nProgress(pDlg.data(), grid.width * grid.height);
-		
-		size_t ceilNonMatchingCount = 0;
-		size_t groundNonMatchingCount = 0;
-		size_t cellCount = 0;
+		CCCoreLib::NormalizedProgress nProgress(pDlg.get(), grid.width * grid.height);
 
-		//at least one of the grid is based on a cloud
+		size_t ceilNonMatchingCount   = 0;
+		size_t groundNonMatchingCount = 0;
+		size_t cellCount              = 0;
+
+		// at least one of the grid is based on a cloud
 		grid.nonEmptyCellCount = 0;
 		for (unsigned i = 0; i < grid.height; ++i)
 		{
@@ -653,11 +716,11 @@ bool ccVolumeCalcTool::ComputeVolume(	ccRasterGrid& grid,
 				ccRasterCell& cell = grid.rows[i][j];
 
 				bool validGround = true;
-				cell.minHeight = groundHeight;
+				cell.minHeight   = groundHeight;
 				if (ground)
 				{
 					cell.minHeight = groundRaster.rows[i][j].h;
-					validGround = std::isfinite(cell.minHeight);
+					validGround    = std::isfinite(cell.minHeight);
 				}
 
 				bool validCeil = true;
@@ -665,12 +728,12 @@ bool ccVolumeCalcTool::ComputeVolume(	ccRasterGrid& grid,
 				if (ceil)
 				{
 					cell.maxHeight = ceilRaster.rows[i][j].h;
-					validCeil = std::isfinite(cell.maxHeight);
+					validCeil      = std::isfinite(cell.maxHeight);
 				}
 
 				if (validGround && validCeil)
 				{
-					cell.h = cell.maxHeight - cell.minHeight;
+					cell.h        = cell.maxHeight - cell.minHeight;
 					cell.nbPoints = 1;
 
 					reportInfo.volume += cell.h;
@@ -698,12 +761,9 @@ bool ccVolumeCalcTool::ComputeVolume(	ccRasterGrid& grid,
 						++cellCount;
 						++ceilNonMatchingCount;
 					}
-					cell.h = std::numeric_limits<double>::quiet_NaN();
+					cell.h        = std::numeric_limits<double>::quiet_NaN();
 					cell.nbPoints = 0;
 				}
-
-				cell.avgHeight = (groundHeight + ceilHeight) / 2;
-				cell.stdDevHeight = 0;
 
 				if (pDlg && !nProgress.oneStep())
 				{
@@ -714,16 +774,16 @@ bool ccVolumeCalcTool::ComputeVolume(	ccRasterGrid& grid,
 		}
 		grid.validCellCount = grid.nonEmptyCellCount;
 
-		//count the average number of valid neighbors
+		// count the average number of valid neighbors
 		{
 			size_t validNeighborsCount = 0;
-			size_t count = 0;
+			size_t count               = 0;
 			for (unsigned i = 1; i < grid.height - 1; ++i)
 			{
 				for (unsigned j = 1; j < grid.width - 1; ++j)
 				{
 					ccRasterCell& cell = grid.rows[i][j];
-					if (cell.h == cell.h)
+					if (std::isfinite(cell.h))
 					{
 						for (unsigned k = i - 1; k <= i + 1; ++k)
 						{
@@ -751,10 +811,10 @@ bool ccVolumeCalcTool::ComputeVolume(	ccRasterGrid& grid,
 			}
 		}
 
-		reportInfo.matchingPrecent = static_cast<float>(grid.validCellCount * 100) / cellCount;
+		reportInfo.matchingPrecent          = static_cast<float>(grid.validCellCount * 100) / cellCount;
 		reportInfo.groundNonMatchingPercent = static_cast<float>(groundNonMatchingCount * 100) / cellCount;
-		reportInfo.ceilNonMatchingPercent = static_cast<float>(ceilNonMatchingCount * 100) / cellCount;
-		float cellArea = static_cast<float>(grid.gridStep * grid.gridStep);
+		reportInfo.ceilNonMatchingPercent   = static_cast<float>(ceilNonMatchingCount * 100) / cellCount;
+		float cellArea                      = static_cast<float>(grid.gridStep * grid.gridStep);
 		reportInfo.volume *= cellArea;
 		reportInfo.addedVolume *= cellArea;
 		reportInfo.removedVolume *= cellArea;
@@ -768,8 +828,8 @@ bool ccVolumeCalcTool::ComputeVolume(	ccRasterGrid& grid,
 
 std::pair<ccGenericPointCloud*, double> ccVolumeCalcTool::getGroundCloud() const
 {
-	ccGenericPointCloud* groundCloud = nullptr;
-	double groundHeight = std::numeric_limits<double>::quiet_NaN();
+	ccGenericPointCloud* groundCloud  = nullptr;
+	double               groundHeight = std::numeric_limits<double>::quiet_NaN();
 	switch (m_ui->groundComboBox->currentIndex())
 	{
 	case 0:
@@ -786,13 +846,13 @@ std::pair<ccGenericPointCloud*, double> ccVolumeCalcTool::getGroundCloud() const
 		break;
 	}
 
-	return { groundCloud, groundHeight };
+	return {groundCloud, groundHeight};
 }
 
 std::pair<ccGenericPointCloud*, double> ccVolumeCalcTool::getCeilCloud() const
 {
-	ccGenericPointCloud* ceilCloud = nullptr;
-	double ceilHeight = std::numeric_limits<double>::quiet_NaN();
+	ccGenericPointCloud* ceilCloud  = nullptr;
+	double               ceilHeight = std::numeric_limits<double>::quiet_NaN();
 	switch (m_ui->ceilComboBox->currentIndex())
 	{
 	case 0:
@@ -809,7 +869,7 @@ std::pair<ccGenericPointCloud*, double> ccVolumeCalcTool::getCeilCloud() const
 		break;
 	}
 
-	return { ceilCloud, ceilHeight };
+	return {ceilCloud, ceilHeight};
 }
 
 bool ccVolumeCalcTool::updateGrid()
@@ -820,25 +880,25 @@ bool ccVolumeCalcTool::updateGrid()
 		return false;
 	}
 
-	//cloud bounding-box --> grid size
+	// cloud bounding-box --> grid size
 	ccBBox box = getCustomBBox();
 	if (!box.isValid())
 	{
 		return false;
 	}
 
-	unsigned gridWidth = 0;
+	unsigned gridWidth  = 0;
 	unsigned gridHeight = 0;
 	if (!getGridSize(gridWidth, gridHeight))
 	{
 		return false;
 	}
 
-	//grid step
+	// grid step
 	double gridStep = getGridStep();
 	assert(gridStep != 0);
 
-	//ground
+	// ground
 	auto ground = getGroundCloud();
 	if (nullptr == ground.first && std::isnan(ground.second))
 	{
@@ -846,7 +906,7 @@ bool ccVolumeCalcTool::updateGrid()
 		return false;
 	}
 
-	//ceil
+	// ceil
 	auto ceil = getCeilCloud();
 	if (nullptr == ceil.first && std::isnan(ceil.second))
 	{
@@ -856,29 +916,28 @@ bool ccVolumeCalcTool::updateGrid()
 
 	ccVolumeCalcTool::ReportInfo reportInfo;
 
-	if (ComputeVolume(	m_grid,
-						ground.first,
-						ceil.first,
-						box,
-						getProjectionDimension(),
-						gridStep,
-						gridWidth,
-						gridHeight,
-						getTypeOfProjection(),
-						getFillEmptyCellsStrategy(m_ui->fillGroundEmptyCellsComboBox),
-						getFillEmptyCellsStrategy(m_ui->fillCeilEmptyCellsComboBox),
-						reportInfo,
-						ground.second,
-						ceil.second,
-						this))
-	{	
+	if (ComputeVolume(m_grid,
+	                  ground.first,
+	                  ceil.first,
+	                  box,
+	                  getProjectionDimension(),
+	                  gridStep,
+	                  gridWidth,
+	                  gridHeight,
+	                  getTypeOfProjection(),
+	                  getFillEmptyCellsStrategy(m_ui->fillGroundEmptyCellsComboBox),
+	                  m_ui->groundMaxEdgeLengthDoubleSpinBox->value(),
+	                  getFillEmptyCellsStrategy(m_ui->fillCeilEmptyCellsComboBox),
+	                  m_ui->ceilMaxEdgeLengthDoubleSpinBox->value(),
+	                  reportInfo,
+	                  ground.second,
+	                  ceil.second,
+	                  this))
+	{
 		outputReport(reportInfo);
 		return true;
 	}
-	else
-	{
-		return false;
-	}
+	return false;
 }
 
 void ccVolumeCalcTool::exportToClipboard() const
@@ -900,10 +959,10 @@ void ccVolumeCalcTool::exportGridAsCloud() const
 	ccPointCloud* rasterCloud = convertGridToCloud(true);
 	if (!rasterCloud)
 	{
-		//error message should have already been issued
+		// error message should have already been issued
 		return;
 	}
-	
+
 	rasterCloud->setName("Height difference " + rasterCloud->getName());
 	ccGenericPointCloud* originCloud = (m_cloud1 ? m_cloud1 : m_cloud2);
 	assert(originCloud);

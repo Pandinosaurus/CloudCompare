@@ -1,31 +1,36 @@
-//##########################################################################
-//#                                                                        #
-//#                              CLOUDCOMPARE                              #
-//#                                                                        #
-//#  This program is free software; you can redistribute it and/or modify  #
-//#  it under the terms of the GNU General Public License as published by  #
-//#  the Free Software Foundation; version 2 or later of the License.      #
-//#                                                                        #
-//#  This program is distributed in the hope that it will be useful,       #
-//#  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
-//#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
-//#  GNU General Public License for more details.                          #
-//#                                                                        #
-//#          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
-//#                                                                        #
-//##########################################################################
+// ##########################################################################
+// #                                                                        #
+// #                              CLOUDCOMPARE                              #
+// #                                                                        #
+// #  This program is free software; you can redistribute it and/or modify  #
+// #  it under the terms of the GNU General Public License as published by  #
+// #  the Free Software Foundation; version 2 or later of the License.      #
+// #                                                                        #
+// #  This program is distributed in the hope that it will be useful,       #
+// #  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
+// #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
+// #  GNU General Public License for more details.                          #
+// #                                                                        #
+// #          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
+// #                                                                        #
+// ##########################################################################
 
+#include "../../include/PDMS/PdmsTools.h"
+
+// qCC
+#include <ccLog.h>
+
+// CCCoreLib
+#include <CCMath.h>
+
+// Qt
 #include <QSet>
 
-#include "PdmsTools.h"
-
-//System
+// System
 #include <cassert>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
-
-#include "CCMath.h"
 
 using namespace PdmsTools;
 using namespace PdmsCommands;
@@ -33,20 +38,19 @@ using namespace PdmsObjects;
 
 /////////// MACROS ////////////
 
-#define memalert(e,s) std::cerr << "Memory alert [" << __FILE__ << ", line " << __LINE__<< "] with size " << s << " : " << e.what() << std::endl;
-#define memfail(e,s) memalert(e,s); abort();
+#define logMemAlert(e, s) ccLog::Warning(QStringLiteral("[PDMSFilter] Memory alert [line %1] with size %2: %3").arg(__LINE__).arg(s).arg(e))
 
 /////////// FUNCTIONS ////////////
-#define PDMS_SQR(a) ((a)*(a))
+#define PDMS_SQR(a) ((a) * (a))
 
 /////////// GLOBALS ////////////
-Token DistanceValue::workingUnit = PDMS_MILLIMETRE;
+Token               DistanceValue::workingUnit = PDMS_MILLIMETRE;
 static GroupElement defaultWorld(PDMS_WORLD);
 
 ///////////////////////////////
 // ITEM STACK
 ///////////////////////////////
-using ElementsStack = QSet<PdmsObjects::GenericItem *>;
+using ElementsStack = QSet<PdmsObjects::GenericItem*>;
 static ElementsStack s_elementsStack;
 
 void PdmsObjects::Stack::Init()
@@ -57,28 +61,25 @@ void PdmsObjects::Stack::Init()
 
 void PdmsObjects::Stack::Clear()
 {
-	//DGM: warning, while deleting some entities, the stack may be modified!!!
+	// DGM: warning, while deleting some entities, the stack may be modified!!!
 	while (!s_elementsStack.empty())
 	{
 		GenericItem* item = *(s_elementsStack.begin());
-		
-		s_elementsStack.remove( item );
-		
-		if (item)
-		{
-			//ccLog::Print(QString("[PDMS] Should be deleting %1").arg(item->name));
-			delete item;
-		}
+
+		s_elementsStack.remove(item);
+
+		// ccLog::Print(QString("[PDMS] Should be deleting %1").arg(item->name));
+		delete item;
 	}
-	
+
 	s_elementsStack.clear();
 }
 
-void PdmsObjects::Stack::Destroy(GenericItem* &item)
+void PdmsObjects::Stack::Destroy(GenericItem*& item)
 {
-	if ( item && s_elementsStack.remove( item ) )
+	if (item && s_elementsStack.remove(item))
 	{
-		//ccLog::Print(QString("[PDMS] Destroying %1").arg((item)->name));
+		// ccLog::Print(QString("[PDMS] Destroying %1").arg((item)->name));
 		delete item;
 		item = nullptr;
 	}
@@ -109,13 +110,13 @@ PointCoordinateType NumericalValue::getValue() const
 	case PDMS_Y_TOP_SHEAR:
 	case PDMS_X_BOTTOM_SHEAR:
 	case PDMS_Y_BOTTOM_SHEAR:
-		return static_cast<PointCoordinateType>( CCCoreLib::DegreesToRadians( value ) );
+		return static_cast<PointCoordinateType>(CCCoreLib::DegreesToRadians(value));
 	default:
 		return value;
 	}
 }
 
-bool NumericalValue::execute(PdmsObjects::GenericItem* &item) const
+bool NumericalValue::execute(PdmsObjects::GenericItem*& item) const
 {
 	return item ? item->setValue(command, getValue()) : false;
 }
@@ -140,15 +141,20 @@ PointCoordinateType DistanceValue::getValueInWorkingUnit() const
 	return value;
 }
 
-bool DistanceValue::execute(PdmsObjects::GenericItem* &item) const
+bool DistanceValue::execute(PdmsObjects::GenericItem*& item) const
 {
 	return item ? item->setValue(command, getValueInWorkingUnit()) : false;
 }
 
-Reference& Reference::operator=(const Reference &ref)
+Reference& Reference::operator=(const Reference& ref)
 {
+	if (this == &ref)
+	{
+		return *this;
+	}
+
 	command = ref.command;
-	token = ref.token;
+	token   = ref.token;
 	strcpy(refname, ref.refname);
 
 	return *this;
@@ -158,7 +164,7 @@ bool Reference::handle(Token t)
 {
 	if (isSet())
 		return false;
-	//Todo : handle other references than grouping elements or design element
+	// Todo : handle other references than grouping elements or design element
 	if (!PdmsToken::isElement(t))
 		return false;
 
@@ -200,54 +206,56 @@ int Reference::isSet() const
 	return nb;
 }
 
-bool Reference::execute(PdmsObjects::GenericItem* &item) const
+bool Reference::execute(PdmsObjects::GenericItem*& item) const
 {
-	//Handle the PDMS_LAST command
+	// Handle the PDMS_LAST command
 	if (command == PDMS_LAST)
 	{
 		if (s_elementsStack.size() < 2)
 			return false;
-		ElementsStack::iterator it = s_elementsStack.end(); --it;
+		ElementsStack::iterator it = s_elementsStack.begin();
 		if (isSet() == 1)
 		{
 			while (true)
 			{
+				if (it == s_elementsStack.end())
+					return false;
 				if (isNameReference() && strcmp(refname, (*it)->name) == 0)
 					break;
 				if (isTokenReference() && (*it)->getType() == token)
 					break;
-				if (it == s_elementsStack.begin())
-					return false;
-				--it;
+				++it;
 			}
 		}
 		item = *it;
 		return true;
 	}
 
-	//Check that this reference is not a PDMS_OWNER termination command
+	// Check that this reference is not a PDMS_OWNER termination command
 	if (command == PDMS_OWNER && !isSet())
 	{
-		//Redirect to an ending command
+		// Redirect to an ending command
 		ElementEnding endCommand(PDMS_OWNER);
 		return endCommand.execute(item);
 	}
 
 	GenericItem* result = nullptr;
-	//Search for the referenced item depending on the reference type
+	// Search for the referenced item depending on the reference type
 	if (isNameReference())
 	{
-		//Use the hierarchy scanning function given the requested object name
-		if (item)
+		// Use the hierarchy scanning function given the requested object name
+		if (!item || !item->getRoot())
+		{
 			return false;
+		}
 		result = item->getRoot()->scan(refname);
 	}
-	//Request for an element (hierarchical or design element only)
+	// Request for an element (hierarchical or design element only)
 	else if (isTokenReference())
 	{
 		if (PdmsToken::isGroupElement(token))
 		{
-			//Go up in the hierarchy to find a matching, or the first group which can own the request item
+			// Go up in the hierarchy to find a matching, or the first group which can own the request item
 			result = item;
 			while (result && result->getType() > token)
 				result = result->owner;
@@ -256,7 +264,7 @@ bool Reference::execute(PdmsObjects::GenericItem* &item) const
 		}
 		else if (PdmsToken::isDesignElement(token))
 		{
-			//Go up in the hierarchy until we meet the requested type
+			// Go up in the hierarchy until we meet the requested type
 			result = item;
 			while (result && result->getType() != token)
 				result = result->owner;
@@ -265,13 +273,13 @@ bool Reference::execute(PdmsObjects::GenericItem* &item) const
 			return false;
 	}
 
-	//If the reference command is PDMS_OWNER, then we have to change the request item owner
+	// If the reference command is PDMS_OWNER, then we have to change the request item owner
 	if (command == PDMS_OWNER && result)
 	{
 		if (!item)
 			return false;
 		item->owner = result;
-		result = item;
+		result      = item;
 	}
 
 	if (result)
@@ -280,13 +288,12 @@ bool Reference::execute(PdmsObjects::GenericItem* &item) const
 	return (result != nullptr);
 }
 
-
 bool Coordinates::handle(Token t)
 {
 	if (current >= 3)
 		return false;
 
-	//Check that current active command cannot handle this token (if it cannot, check that it is valid before continuing)
+	// Check that current active command cannot handle this token (if it cannot, check that it is valid before continuing)
 	if (current >= 0)
 	{
 		if (coords[current].handle(t))
@@ -295,7 +302,7 @@ bool Coordinates::handle(Token t)
 			return false;
 	}
 
-	//Handle coordinates commands
+	// Handle coordinates commands
 	if (!PdmsToken::isCoordinate(t))
 		return false;
 
@@ -303,7 +310,7 @@ bool Coordinates::handle(Token t)
 		return false;
 
 	coords[current].command = t;
-	//coords[current].value = 1;
+	// coords[current].value = 1;
 	coords[current].value = 0;
 
 	return true;
@@ -314,7 +321,7 @@ bool Coordinates::handle(PointCoordinateType numvalue)
 	if (current < 0 || current >= 3)
 		return false;
 
-	//Only coordinates can handle numerical values
+	// Only coordinates can handle numerical values
 	if (!PdmsToken::isCoordinate(coords[current].command))
 		return false;
 
@@ -323,14 +330,14 @@ bool Coordinates::handle(PointCoordinateType numvalue)
 
 bool Coordinates::isValid() const
 {
-	//Can't be invalid
+	// Can't be invalid
 	return true;
 }
 
-bool Coordinates::getVector(CCVector3 &u) const
+bool Coordinates::getVector(CCVector3& u) const
 {
-	bool ok[3] = { false, false, false };
-	u = CCVector3(0, 0, 0);
+	bool ok[3] = {false, false, false};
+	u          = CCVector3(0, 0, 0);
 
 	int nb = getNbComponents();
 	for (int i = 0; i < nb; i++)
@@ -343,34 +350,34 @@ bool Coordinates::getVector(CCVector3 &u) const
 		{
 		case PDMS_X:
 		case PDMS_EST:
-			u[0] = coords[i].getValueInWorkingUnit();
+			u[0]  = coords[i].getValueInWorkingUnit();
 			ok[0] = true;
 			break;
 
 		case PDMS_WEST:
-			u[0] = -coords[i].getValueInWorkingUnit();
+			u[0]  = -coords[i].getValueInWorkingUnit();
 			ok[0] = true;
 			break;
 
 		case PDMS_Y:
 		case PDMS_NORTH:
-			u[1] = coords[i].getValueInWorkingUnit();
+			u[1]  = coords[i].getValueInWorkingUnit();
 			ok[1] = true;
 			break;
 
 		case PDMS_SOUTH:
-			u[1] = -coords[i].getValueInWorkingUnit();
+			u[1]  = -coords[i].getValueInWorkingUnit();
 			ok[1] = true;
 			break;
 
 		case PDMS_Z:
 		case PDMS_UP:
-			u[2] = coords[i].getValueInWorkingUnit();
+			u[2]  = coords[i].getValueInWorkingUnit();
 			ok[2] = true;
 			break;
 
 		case PDMS_DOWN:
-			u[2] = -coords[i].getValueInWorkingUnit();
+			u[2]  = -coords[i].getValueInWorkingUnit();
 			ok[2] = true;
 			break;
 
@@ -384,9 +391,9 @@ bool Coordinates::getVector(CCVector3 &u) const
 int Coordinates::getNbComponents(bool onlyset) const
 {
 	int nb = 0;
-	for (int i = 0; i < 3; i++)
+	for (const auto& coord : coords)
 	{
-		if (PdmsToken::isCoordinate(coords[i].command))
+		if (PdmsToken::isCoordinate(coord.command))
 		{
 			if (!onlyset || coords[nb].valueChanges >= 1)
 				nb++;
@@ -397,7 +404,7 @@ int Coordinates::getNbComponents(bool onlyset) const
 
 bool Position::handle(Token t)
 {
-	//Check if current activ command can handle this token (if it cannot, check that it is valid before continuing)
+	// Check if current activ command can handle this token (if it cannot, check that it is valid before continuing)
 	if (current)
 	{
 		if (current->handle(t))
@@ -405,8 +412,8 @@ bool Position::handle(Token t)
 		if (!current->isValid())
 			return false;
 	}
-	//If no current command is activ, then token must be either a reference command or a coordinate ID
-	//Handle PDMS_WRT (and check it has not been handled yet)
+	// If no current command is activ, then token must be either a reference command or a coordinate ID
+	// Handle PDMS_WRT (and check it has not been handled yet)
 	if (t == PDMS_WRT)
 	{
 		current = &ref;
@@ -415,13 +422,13 @@ bool Position::handle(Token t)
 		current->command = t;
 		return true;
 	}
-	//Handle coordinates ID
+	// Handle coordinates ID
 	if (PdmsToken::isCoordinate(t))
 	{
 		current = &position;
 		return current->handle(t);
 	}
-	//Not handled
+	// Not handled
 	return false;
 }
 
@@ -448,12 +455,12 @@ bool Position::isValid() const
 	return true;
 }
 
-bool Position::execute(PdmsObjects::GenericItem* &item) const
+bool Position::execute(PdmsObjects::GenericItem*& item) const
 {
 	if (!item)
 		return false;
 
-	//Resolve reference if needed
+	// Resolve reference if needed
 	GenericItem* refpos = nullptr;
 	if (ref.isValid())
 	{
@@ -462,7 +469,7 @@ bool Position::execute(PdmsObjects::GenericItem* &item) const
 			return false;
 	}
 
-	//Get position point
+	// Get position point
 	CCVector3 p;
 	position.getVector(p);
 	item->setPosition(p);
@@ -473,7 +480,7 @@ bool Position::execute(PdmsObjects::GenericItem* &item) const
 
 bool Orientation::handle(Token t)
 {
-	//Check that current active command cannot handle this token (if it cannot, check that it is valid before continuing)
+	// Check that current active command cannot handle this token (if it cannot, check that it is valid before continuing)
 	if (current)
 	{
 		if (current->handle(t))
@@ -481,7 +488,7 @@ bool Orientation::handle(Token t)
 		if (!current->isValid())
 			return false;
 	}
-	//PDMS_AND command exits current coordinates system
+	// PDMS_AND command exits current coordinates system
 	if (t == PDMS_AND)
 	{
 		if (!current || !current->isValid())
@@ -489,7 +496,7 @@ bool Orientation::handle(Token t)
 		current = nullptr;
 		return true;
 	}
-	//PDMS_IS activates last specified component
+	// PDMS_IS activates last specified component
 	if (t == PDMS_IS)
 	{
 		if (component < 0 || component >= 3)
@@ -499,7 +506,7 @@ bool Orientation::handle(Token t)
 		current = &orientation[component];
 		return true;
 	}
-	//Handle PDMS_WRT (and check it has not been handled yet)
+	// Handle PDMS_WRT (and check it has not been handled yet)
 	if (t == PDMS_WRT)
 	{
 		if (component < 0 || component >= 3)
@@ -510,13 +517,13 @@ bool Orientation::handle(Token t)
 		current->command = t;
 		return true;
 	}
-	//Handle coordinates ID : here, we should create a new orientation axis (since no current element is activ)
+	// Handle coordinates ID : here, we should create a new orientation axis (since no current element is activ)
 	if (PdmsToken::isCoordinate(t))
 	{
 		if (++component >= 3)
 			return false;
 		orientation[component].command = t;
-		current = nullptr;
+		current                        = nullptr;
 		return true;
 	}
 	return false;
@@ -551,7 +558,7 @@ bool Orientation::isValid() const
 	return true;
 }
 
-bool Orientation::getAxes(CCVector3 &x, CCVector3 &y, CCVector3 &z) const
+bool Orientation::getAxes(CCVector3& x, CCVector3& y, CCVector3& z) const
 {
 	x = y = z = CCVector3(0, 0, 0);
 
@@ -607,18 +614,18 @@ bool Orientation::getAxes(CCVector3 &x, CCVector3 &y, CCVector3 &z) const
 	return nb != 0;
 }
 
-bool Orientation::axisFromCoords(const Coordinates &coords, CCVector3 &u)
+bool Orientation::axisFromCoords(const Coordinates& coords, CCVector3& u)
 {
 	if (!coords.getVector(u))
 		return false;
 
 	if (coords.getNbComponents(true) == 2)
 	{
-		PointCoordinateType alpha = static_cast<PointCoordinateType>( CCCoreLib::DegreesToRadians( u[0] ) );
-		PointCoordinateType beta = static_cast<PointCoordinateType>( CCCoreLib::DegreesToRadians( u[1] ) );
-		u[0] = cos(alpha)*cos(beta);
-		u[1] = sin(alpha)*cos(beta);
-		u[2] = sin(beta);
+		PointCoordinateType alpha = static_cast<PointCoordinateType>(CCCoreLib::DegreesToRadians(u[0]));
+		PointCoordinateType beta  = static_cast<PointCoordinateType>(CCCoreLib::DegreesToRadians(u[1]));
+		u[0]                      = cos(alpha) * cos(beta);
+		u[1]                      = sin(alpha) * cos(beta);
+		u[2]                      = sin(beta);
 	}
 
 	return true;
@@ -632,12 +639,12 @@ int Orientation::getNbComponents() const
 	return nb;
 }
 
-bool Orientation::execute(PdmsObjects::GenericItem* &item) const
+bool Orientation::execute(PdmsObjects::GenericItem*& item) const
 {
 	if (!item)
 		return false;
 
-	//Resolve reference if needed
+	// Resolve reference if needed
 	for (unsigned i = 0; i < 3; i++)
 	{
 		GenericItem* refori = nullptr;
@@ -650,7 +657,7 @@ bool Orientation::execute(PdmsObjects::GenericItem* &item) const
 		item->orientationReferences[i] = refori;
 	}
 
-	//Get position point
+	// Get position point
 	CCVector3 x;
 	CCVector3 y;
 	CCVector3 z;
@@ -661,7 +668,7 @@ bool Orientation::execute(PdmsObjects::GenericItem* &item) const
 	return true;
 }
 
-bool Name::execute(PdmsObjects::GenericItem* &item) const
+bool Name::execute(PdmsObjects::GenericItem*& item) const
 {
 	if (!item)
 		return false;
@@ -671,7 +678,7 @@ bool Name::execute(PdmsObjects::GenericItem* &item) const
 	return true;
 }
 
-bool ElementCreation::handle(const char*str)
+bool ElementCreation::handle(const char* str)
 {
 	if (!elementType)
 		return false;
@@ -715,7 +722,7 @@ const char* ElementCreation::GetDefaultElementName(Token token)
 		return "Structure";
 	case PDMS_SUBSTRUCTURE:
 		return "Sub-structure";
-		//PDMS elements
+		// PDMS elements
 	case PDMS_SCYLINDER:
 		return "Cylinder";
 	case PDMS_CTORUS:
@@ -750,7 +757,7 @@ const char* ElementCreation::GetDefaultElementName(Token token)
 	return nullptr;
 }
 
-bool ElementCreation::execute(PdmsObjects::GenericItem* &item) const
+bool ElementCreation::execute(PdmsObjects::GenericItem*& item) const
 {
 	GenericItem* newElement = nullptr;
 
@@ -767,7 +774,7 @@ bool ElementCreation::execute(PdmsObjects::GenericItem* &item) const
 		case PDMS_SUBSTRUCTURE:
 			newElement = new GroupElement(elementType);
 			break;
-			//PDMS elements
+			// PDMS elements
 		case PDMS_SCYLINDER:
 			newElement = new SCylinder;
 			break;
@@ -785,7 +792,7 @@ bool ElementCreation::execute(PdmsObjects::GenericItem* &item) const
 			break;
 		case PDMS_BOX:
 		case PDMS_NBOX:
-			newElement = new Box;
+			newElement                              = new Box;
 			static_cast<Box*>(newElement)->negative = (elementType == PDMS_NBOX);
 			break;
 		case PDMS_PYRAMID:
@@ -796,7 +803,7 @@ bool ElementCreation::execute(PdmsObjects::GenericItem* &item) const
 			break;
 		case PDMS_EXTRU:
 		case PDMS_NEXTRU:
-			newElement = new Extrusion;
+			newElement                                    = new Extrusion;
 			static_cast<Extrusion*>(newElement)->negative = (elementType == PDMS_NEXTRU);
 			break;
 		case PDMS_LOOP:
@@ -809,9 +816,9 @@ bool ElementCreation::execute(PdmsObjects::GenericItem* &item) const
 			break;
 		}
 	}
-	catch (std::exception &nex)
+	catch (std::exception& nex)
 	{
-		memalert(nex, 1);
+		logMemAlert(nex.what(), 1);
 		return false;
 	}
 
@@ -826,12 +833,12 @@ bool ElementCreation::execute(PdmsObjects::GenericItem* &item) const
 		strcpy(newElement->name, name);
 	}
 
-	//If the path is changed during the creation, do it now
+	// If the path is changed during the creation, do it now
 	if (path.size() > 1)
 	{
 		if (!item)
 		{
-			//delete newElement;
+			// delete newElement;
 			PdmsObjects::Stack::Destroy(newElement);
 			return false;
 		}
@@ -841,7 +848,7 @@ bool ElementCreation::execute(PdmsObjects::GenericItem* &item) const
 			mitem = mitem->scan(path[i].c_str());
 			if (!mitem)
 			{
-				//delete newElement;
+				// delete newElement;
 				PdmsObjects::Stack::Destroy(newElement);
 				return false;
 			}
@@ -849,10 +856,10 @@ bool ElementCreation::execute(PdmsObjects::GenericItem* &item) const
 		item = mitem;
 	}
 
-	//Then we can (try to) push the new element in the hierarchy
+	// Then we can (try to) push the new element in the hierarchy
 	if (item && !item->push(newElement))
 	{
-		//delete newElement;
+		// delete newElement;
 		PdmsObjects::Stack::Destroy(newElement);
 		return false;
 	}
@@ -867,31 +874,31 @@ bool ElementCreation::execute(PdmsObjects::GenericItem* &item) const
 	{
 		s_elementsStack.insert(newElement);
 	}
-	catch (std::exception &pex)
+	catch (std::exception& pex)
 	{
-		memalert(pex, 1);
+		logMemAlert(pex.what(), 1);
 		PdmsObjects::Stack::Destroy(newElement);
-		//delete newElement;
+		// delete newElement;
 		return false;
 	}
 	item = newElement;
 	return true;
 }
 
-bool ElementEnding::execute(PdmsObjects::GenericItem* &item) const
+bool ElementEnding::execute(PdmsObjects::GenericItem*& item) const
 {
 	GenericItem* result = nullptr;
 	switch (command)
 	{
 	case PDMS_OWNER:
-		//If the ending command is PDMS_OWNER, then we simply go back to the item owner
+		// If the ending command is PDMS_OWNER, then we simply go back to the item owner
 		result = item ? item->owner : nullptr;
 		break;
 	case PDMS_END:
-		//Bug realworks : ignore END EXTRU command
+		// Bug realworks : ignore END EXTRU command
 		if (end.isTokenReference() && (end.token == PDMS_EXTRU || end.token == PDMS_NEXTRU))
 			return true;
-		//In the general case, we have to find the references item (default : this one), and go back to its creator
+		// In the general case, we have to find the references item (default : this one), and go back to its creator
 		result = item;
 		if (end.isValid() && !end.execute(result))
 		{
@@ -914,11 +921,11 @@ bool ElementEnding::execute(PdmsObjects::GenericItem* &item) const
 	return true;
 }
 
-bool ElementCreation::splitPath(const char *str)
+bool ElementCreation::splitPath(const char* str)
 {
 	path.clear();
 
-	//Each time a new '/' is met, we create a new entry in the path
+	// Each time a new '/' is met, we create a new entry in the path
 	unsigned i = 0;
 	while (str[i])
 	{
@@ -927,7 +934,7 @@ bool ElementCreation::splitPath(const char *str)
 			if (i != 0)
 				path.emplace_back(str, i);
 			str = &str[i + 1];
-			i = 0;
+			i   = 0;
 		}
 		else
 		{
@@ -935,40 +942,39 @@ bool ElementCreation::splitPath(const char *str)
 		}
 	}
 
-	//At the end, we have to create an entry for the last word
+	// At the end, we have to create an entry for the last word
 	if (i != 0)
 		path.emplace_back(str, i);
 
 	return (!path.empty());
 }
 
-
-bool HierarchyNavigation::execute(PdmsObjects::GenericItem* &item) const
+bool HierarchyNavigation::execute(PdmsObjects::GenericItem*& item) const
 {
 	GenericItem* result = item;
 	if (!result || !isValid())
 		return true;
 
-	//Go back to the first creator object that matches or can contain the command hierarchy level
+	// Go back to the first creator object that matches or can contain the command hierarchy level
 	while (result && command < result->getType())
 		result = result->creator;
 
-	//If we went to the root, we have to create a new hierarchy level and set it as the new root
+	// If we went to the root, we have to create a new hierarchy level and set it as the new root
 	if (!result)
 	{
 		try
 		{
 			result = new GroupElement(command);
 		}
-		catch (std::exception &nex)
+		catch (std::exception& nex)
 		{
-			memfail(nex, 1);
+			logMemAlert(nex.what(), 1);
 			return false;
 		}
 		result->push(item);
 	}
 
-	//change the current element as the new accessed element
+	// change the current element as the new accessed element
 	item = result;
 	return true;
 }
@@ -977,7 +983,7 @@ Command* Command::Create(Token t)
 {
 	try
 	{
-		Command *result = nullptr;
+		Command* result = nullptr;
 		switch (t)
 		{
 		case PDMS_CREATE:
@@ -994,7 +1000,7 @@ Command* Command::Create(Token t)
 		case PDMS_NAME:
 			result = new Name;
 			break;
-			//Attributes
+			// Attributes
 		case PDMS_DIAMETER:
 		case PDMS_HEIGHT:
 		case PDMS_RADIUS:
@@ -1034,13 +1040,14 @@ Command* Command::Create(Token t)
 		case PDMS_SUBSTRUCTURE:
 			result = new HierarchyNavigation(t);
 			break;
-		default: break;
+		default:
+			break;
 		}
 		return result;
 	}
-	catch (std::exception &nex)
+	catch (std::exception& nex)
 	{
-		memfail(nex, 1);
+		logMemAlert(nex.what(), 1);
 		return nullptr;
 	}
 }
@@ -1050,26 +1057,29 @@ Command* Command::Create(Token t)
 ///////////////////////////////
 
 GenericItem::GenericItem()
-	: owner(nullptr)
-	, creator(nullptr)
-	, position(0, 0, 0)
-	, isCoordinateSystemUpToDate(false)
-	, positionReference(nullptr)
+    : owner(nullptr)
+    , creator(nullptr)
+    , position(0, 0, 0)
+    , isCoordinateSystemUpToDate(false)
+    , positionReference(nullptr)
 {
 	orientationReferences[0] = orientationReferences[1] = orientationReferences[2] = nullptr;
-	orientation[0] = CCVector3(0, 0, 0); orientation[0][0] = 1;
-	orientation[1] = CCVector3(0, 0, 0); orientation[1][1] = 1;
-	orientation[2] = CCVector3(0, 0, 0); orientation[2][2] = 1;
-	name[0] = '\0';
+	orientation[0]                                                                 = CCVector3(0, 0, 0);
+	orientation[0][0]                                                              = 1;
+	orientation[1]                                                                 = CCVector3(0, 0, 0);
+	orientation[1][1]                                                              = 1;
+	orientation[2]                                                                 = CCVector3(0, 0, 0);
+	orientation[2][2]                                                              = 1;
+	name[0]                                                                        = '\0';
 }
 
-bool GenericItem::setPosition(const CCVector3 &p)
+bool GenericItem::setPosition(const CCVector3& p)
 {
 	position = p;
 	return true;
 }
 
-bool GenericItem::setOrientation(const CCVector3 &x, const CCVector3 &y, const CCVector3 &z)
+bool GenericItem::setOrientation(const CCVector3& x, const CCVector3& y, const CCVector3& z)
 {
 	orientation[0] = x;
 	orientation[1] = y;
@@ -1079,18 +1089,18 @@ bool GenericItem::setOrientation(const CCVector3 &x, const CCVector3 &y, const C
 
 bool GenericItem::isOrientationValid(unsigned i) const
 {
-	return CCCoreLib::GreaterThanSquareEpsilon( orientation[i].norm2() );
+	return CCCoreLib::GreaterThanSquareEpsilon(orientation[i].norm2());
 }
 
 bool GenericItem::completeOrientation()
 {
-	bool ok[3] = { isOrientationValid(0),
-					isOrientationValid(1),
-					isOrientationValid(2) };
+	bool ok[3] = {isOrientationValid(0),
+	              isOrientationValid(1),
+	              isOrientationValid(2)};
 
 	unsigned nb = static_cast<unsigned>(ok[0])
-		+ static_cast<unsigned>(ok[1])
-		+ static_cast<unsigned>(ok[2]);
+	              + static_cast<unsigned>(ok[1])
+	              + static_cast<unsigned>(ok[2]);
 
 	switch (nb)
 	{
@@ -1099,15 +1109,48 @@ bool GenericItem::completeOrientation()
 
 	case 1:
 
-		if (ok[0]) { orientation[0].normalize(); orientation[1] = orientation[0].orthogonal(); orientation[2] = orientation[0].cross(orientation[1]); break; }
-		if (ok[1]) { orientation[1].normalize(); orientation[2] = orientation[1].orthogonal(); orientation[0] = orientation[1].cross(orientation[2]); break; }
-		if (ok[2]) { orientation[2].normalize(); orientation[0] = orientation[2].orthogonal(); orientation[1] = orientation[2].cross(orientation[0]); break; }
+		if (ok[0])
+		{
+			orientation[0].normalize();
+			orientation[1] = orientation[0].orthogonal();
+			orientation[2] = orientation[0].cross(orientation[1]);
+			break;
+		}
+		if (ok[1])
+		{
+			orientation[1].normalize();
+			orientation[2] = orientation[1].orthogonal();
+			orientation[0] = orientation[1].cross(orientation[2]);
+			break;
+		}
+		if (ok[2])
+		{
+			orientation[2].normalize();
+			orientation[0] = orientation[2].orthogonal();
+			orientation[1] = orientation[2].cross(orientation[0]);
+			break;
+		}
 
 	case 2:
 
-		if (!ok[0]) { orientation[1].normalize(); orientation[2].normalize(); orientation[0] = orientation[1].cross(orientation[2]); }
-		if (!ok[1]) { orientation[0].normalize(); orientation[2].normalize(); orientation[1] = orientation[2].cross(orientation[0]); }
-		if (!ok[2]) { orientation[0].normalize(); orientation[1].normalize(); orientation[2] = orientation[0].cross(orientation[1]); }
+		if (!ok[0])
+		{
+			orientation[1].normalize();
+			orientation[2].normalize();
+			orientation[0] = orientation[1].cross(orientation[2]);
+		}
+		if (!ok[1])
+		{
+			orientation[0].normalize();
+			orientation[2].normalize();
+			orientation[1] = orientation[2].cross(orientation[0]);
+		}
+		if (!ok[2])
+		{
+			orientation[0].normalize();
+			orientation[1].normalize();
+			orientation[2] = orientation[0].cross(orientation[1]);
+		}
 		break;
 
 	case 3:
@@ -1126,19 +1169,19 @@ bool GenericItem::convertCoordinateSystem()
 		return true;
 	if (!positionReference)
 		positionReference = owner;
-	//init orientationReferences
+	// init orientationReferences
 	{
-		for (unsigned k = 0; k < 3; k++)
-			if (!orientationReferences[k])
-				orientationReferences[k] = owner;
+		for (auto& orientation : orientationReferences)
+			if (!orientation)
+				orientation = owner;
 	}
-	//Update position coordinates
+	// Update position coordinates
 	if (positionReference)
 	{
 		if (!positionReference->convertCoordinateSystem())
 			return false;
-		//New position is reference origin plus sum(reference_axis[i]*point_coordinate[i])
-		GenericItem *ref = positionReference;
+		// New position is reference origin plus sum(reference_axis[i]*point_coordinate[i])
+		GenericItem* ref = positionReference;
 		if (!ref->isCoordinateSystemUpToDate && ref->owner == this)
 			return false;
 		CCVector3 p = position;
@@ -1146,7 +1189,7 @@ bool GenericItem::convertCoordinateSystem()
 			position[i] = ref->orientation[0][i] * p[0] + ref->orientation[1][i] * p[1] + ref->orientation[2][i] * p[2];
 		position += ref->position;
 	}
-	//The same for orientation
+	// The same for orientation
 	for (unsigned k = 0; k < 3; k++)
 	{
 		if (!isOrientationValid(k))
@@ -1155,8 +1198,8 @@ bool GenericItem::convertCoordinateSystem()
 		{
 			if (!orientationReferences[k]->convertCoordinateSystem())
 				return false;
-			//New axis is sum(reference_axis[i]*axis[i])
-			GenericItem *ref = orientationReferences[k];
+			// New axis is sum(reference_axis[i]*axis[i])
+			GenericItem* ref = orientationReferences[k];
 			if (!ref->isCoordinateSystemUpToDate && ref->owner == this)
 				return false;
 
@@ -1180,7 +1223,7 @@ bool GenericItem::convertCoordinateSystem()
 	return true;
 }
 
-bool GenericItem::scan(Token t, std::vector<GenericItem *> &array)
+bool GenericItem::scan(Token t, std::vector<GenericItem*>& array)
 {
 	if (getType() == t)
 	{
@@ -1188,9 +1231,10 @@ bool GenericItem::scan(Token t, std::vector<GenericItem *> &array)
 		{
 			array.push_back(this);
 		}
-		catch (std::exception &pex)
+		catch (std::exception& pex)
 		{
-			memfail(pex, array.size());
+			logMemAlert(pex.what(), array.size());
+			return false;
 		}
 		return true;
 	}
@@ -1200,9 +1244,9 @@ bool GenericItem::scan(Token t, std::vector<GenericItem *> &array)
 
 DesignElement::~DesignElement()
 {
-	for (std::list<DesignElement*>::iterator it = nelements.begin(); it != nelements.end(); ++it)
+	for (auto* element : nelements)
 	{
-		GenericItem* item = *it;
+		GenericItem* item = element;
 		if (item)
 		{
 			Stack::Destroy(item);
@@ -1211,20 +1255,20 @@ DesignElement::~DesignElement()
 	nelements.clear();
 }
 
-bool DesignElement::push(GenericItem *i)
+bool DesignElement::push(GenericItem* i)
 {
 	if (i->isDesignElement())
 	{
-		DesignElement *element = static_cast<DesignElement*>(i);
+		DesignElement* element = static_cast<DesignElement*>(i);
 		if (element->negative)
 		{
 			try
 			{
 				nelements.push_back(element);
 			}
-			catch (std::exception &pex)
+			catch (std::exception& pex)
 			{
-				memalert(pex, nelements.size());
+				logMemAlert(pex.what(), nelements.size());
 				return false;
 			}
 			if (element->owner)
@@ -1234,19 +1278,19 @@ bool DesignElement::push(GenericItem *i)
 		}
 	}
 
-	//In most cases, design elements do not handle nested elements
+	// In most cases, design elements do not handle nested elements
 	if (owner)
 		return owner->push(i);
 
 	return false;
 }
 
-void DesignElement::remove(GenericItem *i)
+void DesignElement::remove(GenericItem* i)
 {
 	for (std::list<DesignElement*>::iterator it = nelements.begin(); it != nelements.end();)
 	{
 		if (*it == i)
-			nelements.erase(it);
+			it = nelements.erase(it);
 		else
 			++it;
 	}
@@ -1269,16 +1313,16 @@ void GroupElement::clear(bool del)
 {
 	if (del)
 	{
-		for (std::list<DesignElement*>::iterator eit = elements.begin(); eit != elements.end(); ++eit)
+		for (auto* element : elements)
 		{
-			GenericItem* item = *eit;
-			if (*eit)
+			GenericItem* item = element;
+			if (element)
 				Stack::Destroy(item);
 		}
-		for (std::list<GroupElement*>::iterator hit = subhierarchy.begin(); hit != subhierarchy.end(); ++hit)
+		for (auto* hit : subhierarchy)
 		{
-			GenericItem* item = *hit;
-			if (*hit)
+			GenericItem* item = hit;
+			if (hit)
 				Stack::Destroy(item);
 		}
 	}
@@ -1286,16 +1330,16 @@ void GroupElement::clear(bool del)
 	subhierarchy.clear();
 }
 
-bool GroupElement::push(GenericItem *i)
+bool GroupElement::push(GenericItem* i)
 {
-	//In each case, the insertion of a new element consists in finding the list in which it should be added
+	// In each case, the insertion of a new element consists in finding the list in which it should be added
 
-	//If the request item is a group, we have to find its new place in the hierarchy
+	// If the request item is a group, we have to find its new place in the hierarchy
 	if (PdmsToken::isGroupElement(i->getType()))
 	{
-		//If this group can contain the request item, then insert it in the group list
-		GroupElement *group = dynamic_cast<GroupElement*>(i);
-		if (group->level == PDMS_GROUP || group->level > level)
+		// If this group can contain the request item, then insert it in the group list
+		GroupElement* group = dynamic_cast<GroupElement*>(i);
+		if (group && (group->level == PDMS_GROUP || group->level > level))
 		{
 			if (group->owner)
 				group->owner->remove(group);
@@ -1305,19 +1349,23 @@ bool GroupElement::push(GenericItem *i)
 			{
 				subhierarchy.push_back(group);
 			}
-			catch (std::exception &pex)
+			catch (std::exception& pex)
 			{
-				memalert(pex, subhierarchy.size());
+				logMemAlert(pex.what(), subhierarchy.size());
 				return false;
 			}
 		}
-		//else the requested item should be inserted in this group owner
+		// else the requested item should be inserted in this group owner
 		else if (owner)
+		{
 			owner->push(group);
+		}
 		else
+		{
 			return false;
+		}
 	}
-	//For design elements, insert it in the group' design element list
+	// For design elements, insert it in the group' design element list
 	else if (PdmsToken::isDesignElement(i->getType()))
 	{
 		if (i->owner)
@@ -1327,9 +1375,9 @@ bool GroupElement::push(GenericItem *i)
 		{
 			elements.push_back(dynamic_cast<DesignElement*>(i));
 		}
-		catch (std::exception &pex)
+		catch (std::exception& pex)
 		{
-			memalert(pex, elements.size());
+			logMemAlert(pex.what(), elements.size());
 			return false;
 		}
 		return true;
@@ -1337,7 +1385,7 @@ bool GroupElement::push(GenericItem *i)
 	return true;
 }
 
-void GroupElement::remove(GenericItem *i)
+void GroupElement::remove(GenericItem* i)
 {
 	for (std::list<GroupElement*>::iterator hit = subhierarchy.begin(); hit != subhierarchy.end(); ++hit)
 	{
@@ -1358,28 +1406,27 @@ void GroupElement::remove(GenericItem *i)
 	}
 }
 
-
 bool GroupElement::convertCoordinateSystem()
 {
-	//Important : check that the object is not up to date, to avoid infinite loops
+	// Important : check that the object is not up to date, to avoid infinite loops
 	if (isCoordinateSystemUpToDate)
 		return true;
 
 	if (!GenericItem::convertCoordinateSystem())
 		return false;
-	for (std::list<DesignElement*>::iterator eit = elements.begin(); eit != elements.end(); ++eit)
-		if (!(*eit)->convertCoordinateSystem())
+	for (auto* element : elements)
+		if (!element->convertCoordinateSystem())
 			return false;
-	for (std::list<GroupElement*>::iterator hit = subhierarchy.begin(); hit != subhierarchy.end(); ++hit)
-		if (!(*hit)->convertCoordinateSystem())
+	for (auto* hit : subhierarchy)
+		if (!hit->convertCoordinateSystem())
 			return false;
 	return true;
 }
 
 GenericItem* GroupElement::scan(const char* str)
 {
-	//scan all elements contained in this group, beginning with this one, while none matches the requested name
-	GenericItem *item = GenericItem::scan(str);
+	// scan all elements contained in this group, beginning with this one, while none matches the requested name
+	GenericItem* item = GenericItem::scan(str);
 	for (std::list<DesignElement*>::iterator eit = elements.begin(); eit != elements.end() && !item; ++eit)
 		item = (*eit)->scan(str);
 	for (std::list<GroupElement*>::iterator hit = subhierarchy.begin(); hit != subhierarchy.end() && !item; ++hit)
@@ -1387,18 +1434,23 @@ GenericItem* GroupElement::scan(const char* str)
 	return item;
 }
 
-bool GroupElement::scan(Token t, std::vector<GenericItem*> &items)
+bool GroupElement::scan(Token t, std::vector<GenericItem*>& items)
 {
-	GenericItem::scan(t, items);
+	if (!GenericItem::scan(t, items))
+	{
+		return false;
+	}
 	size_t size = items.size();
-	for (std::list<DesignElement*>::iterator eit = elements.begin(); eit != elements.end(); ++eit)
-		(*eit)->scan(t, items);
-	for (std::list<GroupElement*>::iterator hit = subhierarchy.begin(); hit != subhierarchy.end(); ++hit)
-		(*hit)->scan(t, items);
+	for (auto* element : elements)
+		if (!element->scan(t, items))
+			return false;
+	for (auto* hit : subhierarchy)
+		if (!hit->scan(t, items))
+			return false;
 	return (items.size() > size);
 }
 
-std::pair<int, int> GroupElement::write(std::ostream &output, int nbtabs) const
+std::pair<int, int> GroupElement::write(std::ostream& output, int nbtabs) const
 {
 	{
 		for (int i = 0; i < nbtabs; i++)
@@ -1408,34 +1460,48 @@ std::pair<int, int> GroupElement::write(std::ostream &output, int nbtabs) const
 
 	switch (level)
 	{
-	case PDMS_GROUP: output << "GROUP"; break;
-	case PDMS_WORLD: output << "WORLD"; break;
-	case PDMS_SITE: output << "SITE"; break;
-	case PDMS_ZONE: output << "ZONE"; break;
-	case PDMS_EQUIPMENT: output << "EQUIPMENT"; break;
-	case PDMS_STRUCTURE: output << "STRUCTURE"; break;
-	case PDMS_SUBSTRUCTURE: output << "SUBSTRUCTURE"; break;
+	case PDMS_GROUP:
+		output << "GROUP";
+		break;
+	case PDMS_WORLD:
+		output << "WORLD";
+		break;
+	case PDMS_SITE:
+		output << "SITE";
+		break;
+	case PDMS_ZONE:
+		output << "ZONE";
+		break;
+	case PDMS_EQUIPMENT:
+		output << "EQUIPMENT";
+		break;
+	case PDMS_STRUCTURE:
+		output << "STRUCTURE";
+		break;
+	case PDMS_SUBSTRUCTURE:
+		output << "SUBSTRUCTURE";
+		break;
 	default:
-		std::cout << "Error : cannot write group " << level << std::endl;
-		return std::pair<int, int>(0, 0);
+		ccLog::Error(QStringLiteral("[PDMSFilter] Error : cannot write group %1").arg(level));
+		return {0, 0};
 	}
 
 	if (strlen(name))
 		output << " /" << name;
-	output << std::endl;
+	output << "\n";
 
 	std::pair<int, int> nb(1, 0);
 
-	for (std::list<GroupElement*>::const_iterator hit = subhierarchy.begin(); hit != subhierarchy.end(); ++hit)
+	for (auto* hit : subhierarchy)
 	{
-		std::pair<int, int> n = (*hit)->write(output, nbtabs + 1);
+		std::pair<int, int> n = hit->write(output, nbtabs + 1);
 		nb.first += n.first;
 		nb.second += n.second;
 	}
 
-	for (std::list<DesignElement*>::const_iterator eit = elements.begin(); eit != elements.end(); ++eit)
+	for (auto* element : elements)
 	{
-		std::pair<int, int> n = (*eit)->write(output, nbtabs + 1);
+		std::pair<int, int> n = element->write(output, nbtabs + 1);
 		nb.first += n.first;
 		nb.second += n.second;
 	}
@@ -1444,7 +1510,7 @@ std::pair<int, int> GroupElement::write(std::ostream &output, int nbtabs) const
 		for (int i = 0; i < nbtabs; i++)
 			output << "\t";
 	}
-	output << "END" << std::endl;
+	output << "END\n";
 	return nb;
 }
 
@@ -1452,23 +1518,44 @@ bool SCylinder::setValue(Token t, PointCoordinateType value)
 {
 	switch (t)
 	{
-	case PDMS_DIAMETER: diameter = value; break;
-	case PDMS_HEIGHT: height = value; break;
-	case PDMS_X_TOP_SHEAR: xtshear = value; if (std::abs(xtshear) > 90.) return false; break;
-	case PDMS_Y_TOP_SHEAR: ytshear = value; if (std::abs(ytshear) > 90.) return false; break;
-	case PDMS_X_BOTTOM_SHEAR: xbshear = value; if (std::abs(xbshear) > 90.) return false; break;
-	case PDMS_Y_BOTTOM_SHEAR: ybshear = value; if (std::abs(ybshear) > 90.) return false; break;
-	default: return false;
+	case PDMS_DIAMETER:
+		diameter = value;
+		break;
+	case PDMS_HEIGHT:
+		height = value;
+		break;
+	case PDMS_X_TOP_SHEAR:
+		xtshear = value;
+		if (std::abs(xtshear) > 90.)
+			return false;
+		break;
+	case PDMS_Y_TOP_SHEAR:
+		ytshear = value;
+		if (std::abs(ytshear) > 90.)
+			return false;
+		break;
+	case PDMS_X_BOTTOM_SHEAR:
+		xbshear = value;
+		if (std::abs(xbshear) > 90.)
+			return false;
+		break;
+	case PDMS_Y_BOTTOM_SHEAR:
+		ybshear = value;
+		if (std::abs(ybshear) > 90.)
+			return false;
+		break;
+	default:
+		return false;
 	}
 	return true;
 }
 
 PointCoordinateType SCylinder::surface() const
 {
-	return static_cast<PointCoordinateType>(M_PI)*diameter*height;
+	return static_cast<PointCoordinateType>(M_PI) * diameter * height;
 }
 
-std::pair<int, int> SCylinder::write(std::ostream &output, int nbtabs) const
+std::pair<int, int> SCylinder::write(std::ostream& output, int nbtabs) const
 {
 	int i;
 	for (i = 0; i < nbtabs; i++)
@@ -1476,63 +1563,72 @@ std::pair<int, int> SCylinder::write(std::ostream &output, int nbtabs) const
 	output << "NEW SLCYLINDER";
 	if (strlen(name))
 		output << " /" << name;
-	output << std::endl;
+	output << "\n";
 
 	for (i = 0; i <= nbtabs; i++)
 		output << "\t";
-	output << "DIAMETER " << diameter << std::endl;
+	output << "DIAMETER " << diameter << "\n";
 	for (i = 0; i <= nbtabs; i++)
 		output << "\t";
-	output << "HEIGHT " << height << std::endl;
+	output << "HEIGHT " << height << "\n";
 	for (i = 0; i <= nbtabs; i++)
 		output << "\t";
-	output << "XTSHEAR " << CCCoreLib::RadiansToDegrees( xtshear ) << std::endl;
+	output << "XTSHEAR " << CCCoreLib::RadiansToDegrees(xtshear) << "\n";
 	for (i = 0; i <= nbtabs; i++)
 		output << "\t";
-	output << "XBSHEAR " << CCCoreLib::RadiansToDegrees( xbshear ) << std::endl;
+	output << "XBSHEAR " << CCCoreLib::RadiansToDegrees(xbshear) << "\n";
 	for (i = 0; i <= nbtabs; i++)
 		output << "\t";
-	output << "YTSHEAR " << CCCoreLib::RadiansToDegrees( ytshear ) << std::endl;
+	output << "YTSHEAR " << CCCoreLib::RadiansToDegrees(ytshear) << "\n";
 	for (i = 0; i <= nbtabs; i++)
 		output << "\t";
-	output << "YBSHEAR " << CCCoreLib::RadiansToDegrees( ybshear ) << std::endl;
+	output << "YBSHEAR " << CCCoreLib::RadiansToDegrees(ybshear) << "\n";
 	for (i = 0; i <= nbtabs; i++)
 		output << "\t";
-	output << "AT X " << position[0] << " Y " << position[1] << " Z " << position[2] << std::endl;
+	output << "AT X " << position[0] << " Y " << position[1] << " Z " << position[2] << "\n";
 	for (i = 0; i <= nbtabs; i++)
 		output << "\t";
 	output << "ORI ";
 	output << "X is X " << orientation[0][0] << " Y " << orientation[0][1] << " Z " << orientation[0][2];
-	output << " AND Z is X " << orientation[2][0] << " Y " << orientation[2][1] << " Z " << orientation[2][2] << std::endl;
+	output << " AND Z is X " << orientation[2][0] << " Y " << orientation[2][1] << " Z " << orientation[2][2] << "\n";
 
 	for (i = 0; i < nbtabs; i++)
 		output << "\t";
 
-	output << "END" << std::endl;
+	output << "END\n";
 
-	return std::pair<int, int>(0, 1);
+	return {0, 1};
 }
 
 bool CTorus::setValue(Token t, PointCoordinateType value)
 {
 	switch (t)
 	{
-	case PDMS_ANGLE: angle = value; if (std::abs(angle) > (2.*M_PI)) return false; break;
-	case PDMS_INSIDE_RADIUS: inside_radius = value; break;
-	case PDMS_OUTSIDE_RADIUS: outside_radius = value; break;
-	default: return false;
+	case PDMS_ANGLE:
+		angle = value;
+		if (std::abs(angle) > (2. * M_PI))
+			return false;
+		break;
+	case PDMS_INSIDE_RADIUS:
+		inside_radius = value;
+		break;
+	case PDMS_OUTSIDE_RADIUS:
+		outside_radius = value;
+		break;
+	default:
+		return false;
 	}
 	return true;
 }
 
 PointCoordinateType CTorus::surface() const
 {
-	PointCoordinateType r = static_cast<PointCoordinateType>(0.5)*(outside_radius - inside_radius);
+	PointCoordinateType r = static_cast<PointCoordinateType>(0.5) * (outside_radius - inside_radius);
 	PointCoordinateType R = outside_radius - r;
-	return (angle / static_cast<PointCoordinateType>(2.0*M_PI))*(static_cast<PointCoordinateType>(4.0*PDMS_SQR(M_PI))*r*R);
+	return (angle / static_cast<PointCoordinateType>(2.0 * M_PI)) * (static_cast<PointCoordinateType>(4.0 * PDMS_SQR(M_PI)) * r * R);
 }
 
-std::pair<int, int> CTorus::write(std::ostream &output, int nbtabs) const
+std::pair<int, int> CTorus::write(std::ostream& output, int nbtabs) const
 {
 	int i;
 
@@ -1541,55 +1637,66 @@ std::pair<int, int> CTorus::write(std::ostream &output, int nbtabs) const
 	output << "NEW CTORUS";
 	if (strlen(name))
 		output << " /" << name;
-	output << std::endl;
+	output << "\n";
 
 	for (i = 0; i <= nbtabs; i++)
 		output << "\t";
-	output << "RINSIDE " << inside_radius << std::endl;
+	output << "RINSIDE " << inside_radius << "\n";
 	for (i = 0; i <= nbtabs; i++)
 		output << "\t";
-	output << "ROUTSIDE " << outside_radius << std::endl;
+	output << "ROUTSIDE " << outside_radius << "\n";
 	for (i = 0; i <= nbtabs; i++)
 		output << "\t";
-	output << "ANGLE " << CCCoreLib::RadiansToDegrees( angle ) << std::endl;
+	output << "ANGLE " << CCCoreLib::RadiansToDegrees(angle) << "\n";
 	for (i = 0; i <= nbtabs; i++)
 		output << "\t";
-	output << "AT X " << position[0] << " Y " << position[1] << " Z " << position[2] << std::endl;
+	output << "AT X " << position[0] << " Y " << position[1] << " Z " << position[2] << "\n";
 	for (i = 0; i <= nbtabs; i++)
 		output << "\t";
 	output << "ORI ";
 	output << "X is X " << orientation[0][0] << " Y " << orientation[0][1] << " Z " << orientation[0][2];
-	output << " AND Z is X " << orientation[2][0] << " Y " << orientation[2][1] << " Z " << orientation[2][2] << std::endl;
+	output << " AND Z is X " << orientation[2][0] << " Y " << orientation[2][1] << " Z " << orientation[2][2] << "\n";
 
 	for (i = 0; i < nbtabs; i++)
 		output << "\t";
-	output << "END" << std::endl;
+	output << "END\n";
 
-	return std::pair<int, int>(0, 1);
+	return {0, 1};
 }
 
 bool RTorus::setValue(Token t, PointCoordinateType value)
 {
 	switch (t)
 	{
-	case PDMS_ANGLE: angle = value; if (std::abs(angle) > (2.*M_PI)) return false; break;
-	case PDMS_INSIDE_RADIUS: inside_radius = value; break;
-	case PDMS_OUTSIDE_RADIUS: outside_radius = value; break;
-	case PDMS_HEIGHT: height = value; break;
-	default: return false;
+	case PDMS_ANGLE:
+		angle = value;
+		if (std::abs(angle) > (2. * M_PI))
+			return false;
+		break;
+	case PDMS_INSIDE_RADIUS:
+		inside_radius = value;
+		break;
+	case PDMS_OUTSIDE_RADIUS:
+		outside_radius = value;
+		break;
+	case PDMS_HEIGHT:
+		height = value;
+		break;
+	default:
+		return false;
 	}
 	return true;
 }
 
 PointCoordinateType RTorus::surface() const
 {
-	PointCoordinateType inside = static_cast<PointCoordinateType>(2.0*M_PI)*inside_radius*height;
-	PointCoordinateType outside = static_cast<PointCoordinateType>(2.0*M_PI)*outside_radius*height;
-	PointCoordinateType updown = static_cast<PointCoordinateType>(2.0*M_PI)*(PDMS_SQR(outside_radius) - PDMS_SQR(inside_radius));
-	return (angle / static_cast<PointCoordinateType>(2.0*M_PI))*(inside + outside + updown);
+	PointCoordinateType inside  = static_cast<PointCoordinateType>(2.0 * M_PI) * inside_radius * height;
+	PointCoordinateType outside = static_cast<PointCoordinateType>(2.0 * M_PI) * outside_radius * height;
+	PointCoordinateType updown  = static_cast<PointCoordinateType>(2.0 * M_PI) * (PDMS_SQR(outside_radius) - PDMS_SQR(inside_radius));
+	return (angle / static_cast<PointCoordinateType>(2.0 * M_PI)) * (inside + outside + updown);
 }
 
-std::pair<int, int> RTorus::write(std::ostream &output, int nbtabs) const
+std::pair<int, int> RTorus::write(std::ostream& output, int nbtabs) const
 {
 	int i;
 
@@ -1598,40 +1705,40 @@ std::pair<int, int> RTorus::write(std::ostream &output, int nbtabs) const
 	output << "NEW RTORUS";
 	if (strlen(name))
 		output << " /" << name;
-	output << std::endl;
+	output << "\n";
 
 	for (i = 0; i <= nbtabs; i++)
 		output << "\t";
-	output << "RINSIDE " << inside_radius << std::endl;
+	output << "RINSIDE " << inside_radius << "\n";
 	for (i = 0; i <= nbtabs; i++)
 		output << "\t";
-	output << "ROUTSIDE " << outside_radius << std::endl;
+	output << "ROUTSIDE " << outside_radius << "\n";
 	for (i = 0; i <= nbtabs; i++)
 		output << "\t";
-	output << "HEIGHT " << height << std::endl;
+	output << "HEIGHT " << height << "\n";
 	for (i = 0; i <= nbtabs; i++)
 		output << "\t";
-	output << "ANGLE " << CCCoreLib::RadiansToDegrees( angle ) << std::endl;
+	output << "ANGLE " << CCCoreLib::RadiansToDegrees(angle) << "\n";
 	for (i = 0; i <= nbtabs; i++)
 		output << "\t";
-	output << "AT X " << position[0] << " Y " << position[1] << " Z " << position[2] << std::endl;
+	output << "AT X " << position[0] << " Y " << position[1] << " Z " << position[2] << "\n";
 	for (i = 0; i <= nbtabs; i++)
 		output << "\t";
 	output << "ORI ";
 	output << "X is X " << orientation[0][0] << " Y " << orientation[0][1] << " Z " << orientation[0][2];
-	output << " AND Z is X " << orientation[2][0] << " Y " << orientation[2][1] << " Z " << orientation[2][2] << std::endl;
+	output << " AND Z is X " << orientation[2][0] << " Y " << orientation[2][1] << " Z " << orientation[2][2] << "\n";
 
 	for (i = 0; i < nbtabs; i++)
 		output << "\t";
-	output << "END" << std::endl;
+	output << "END\n";
 
-	return std::pair<int, int>(0, 1);
+	return {0, 1};
 }
 
 Dish::Dish()
-	: diameter(0)
-	, height(0)
-	, radius(0)
+    : diameter(0)
+    , height(0)
+    , radius(0)
 {
 }
 
@@ -1639,89 +1746,99 @@ bool Dish::setValue(Token t, PointCoordinateType value)
 {
 	switch (t)
 	{
-	case PDMS_HEIGHT: height = value; break;
-	case PDMS_RADIUS: radius = value; break;
-	case PDMS_DIAMETER: diameter = value; break;
-	default: return false;
+	case PDMS_HEIGHT:
+		height = value;
+		break;
+	case PDMS_RADIUS:
+		radius = value;
+		break;
+	case PDMS_DIAMETER:
+		diameter = value;
+		break;
+	default:
+		return false;
 	}
 	return true;
 }
 
 PointCoordinateType Dish::surface() const
 {
-	if ( CCCoreLib::GreaterThanEpsilon( radius ) )
+	if (CCCoreLib::GreaterThanEpsilon(radius))
 	{
-		PointCoordinateType r = static_cast<PointCoordinateType>(0.5f*diameter);
+		double r = 0.5 * diameter;
 		if (CCCoreLib::LessThanEpsilon(std::abs(2 * height - diameter)))
 		{
-			return static_cast<PointCoordinateType>(2.0*M_PI)*PDMS_SQR(r);
+			return static_cast<PointCoordinateType>(2.0 * M_PI * PDMS_SQR(r));
 		}
 		if (2 * height > diameter)
 		{
 			PointCoordinateType a = acos(r / height);
-			return static_cast<PointCoordinateType>(M_PI)*(PDMS_SQR(r) + (a*r*height / sin(a)));
+			return static_cast<PointCoordinateType>(M_PI * (PDMS_SQR(r) + (a * r * height / sin(a))));
 		}
-		else
-		{
-			PointCoordinateType a = acos(height / r);
-			return static_cast<PointCoordinateType>(M_PI)*(PDMS_SQR(r) + ((PDMS_SQR(height) / sin(a))*log((1 + sin(a)) / cos(a))));
-		}
+
+		PointCoordinateType a = acos(height / r);
+		return static_cast<PointCoordinateType>(M_PI * (PDMS_SQR(r) + ((PDMS_SQR(height) / sin(a)) * log((1 + sin(a)) / cos(a)))));
 	}
-	return static_cast<PointCoordinateType>(M_PI)*diameter*height;
+	return static_cast<PointCoordinateType>(M_PI * diameter * height);
 }
 
-std::pair<int, int> Dish::write(std::ostream &output, int nbtabs) const
+std::pair<int, int> Dish::write(std::ostream& output, int nbtabs) const
 {
-	int i;
-
-	for (i = 0; i < nbtabs; i++)
+	for (int i = 0; i < nbtabs; i++)
 		output << "\t";
 	output << "NEW DISH";
 	if (strlen(name))
 		output << " /" << name;
-	output << std::endl;
+	output << "\n";
 
-	for (i = 0; i <= nbtabs; i++)
+	for (int i = 0; i <= nbtabs; i++)
 		output << "\t";
-	output << "HEIGHT " << height << std::endl;
-	for (i = 0; i <= nbtabs; i++)
+	output << "HEIGHT " << height << "\n";
+	for (int i = 0; i <= nbtabs; i++)
 		output << "\t";
-	output << "RADIUS " << radius << std::endl;
-	for (i = 0; i <= nbtabs; i++)
+	output << "RADIUS " << radius << "\n";
+	for (int i = 0; i <= nbtabs; i++)
 		output << "\t";
-	output << "DIAMETER " << diameter << std::endl;
-	for (i = 0; i <= nbtabs; i++)
+	output << "DIAMETER " << diameter << "\n";
+	for (int i = 0; i <= nbtabs; i++)
 		output << "\t";
-	output << "AT X " << position[0] << " Y " << position[1] << " Z " << position[2] << std::endl;
-	for (i = 0; i <= nbtabs; i++)
+	output << "AT X " << position[0] << " Y " << position[1] << " Z " << position[2] << "\n";
+	for (int i = 0; i <= nbtabs; i++)
 		output << "\t";
 	output << "ORI ";
 	output << "X is X " << orientation[0][0] << " Y " << orientation[0][1] << " Z " << orientation[0][2];
-	output << " AND Z is X " << orientation[2][0] << " Y " << orientation[2][1] << " Z " << orientation[2][2] << std::endl;
+	output << " AND Z is X " << orientation[2][0] << " Y " << orientation[2][1] << " Z " << orientation[2][2] << "\n";
 
-	for (i = 0; i < nbtabs; i++)
+	for (int i = 0; i < nbtabs; i++)
 		output << "\t";
-	output << "END" << std::endl;
+	output << "END\n";
 
-	return std::pair<int, int>(0, 1);
+	return {0, 1};
 }
 
 bool Cone::setValue(Token t, PointCoordinateType value)
 {
 	switch (t)
 	{
-	case PDMS_TOP_DIAMETER: dtop = value; break;
-	case PDMS_BOTTOM_DIAMETER: dbottom = value; break;
-	case PDMS_HEIGHT: height = value; break;
-	default: return false;
+	case PDMS_TOP_DIAMETER:
+		dtop = value;
+		break;
+	case PDMS_BOTTOM_DIAMETER:
+		dbottom = value;
+		break;
+	case PDMS_HEIGHT:
+		height = value;
+		break;
+	default:
+		return false;
 	}
 	return true;
 }
 
 PointCoordinateType Cone::surface() const
 {
-	PointCoordinateType r1;
-	PointCoordinateType r2;
+	double r1 = 0;
+	double r2 = 0;
 	if (dtop < dbottom)
 	{
 		r1 = dtop;
@@ -1733,51 +1850,49 @@ PointCoordinateType Cone::surface() const
 		r2 = dtop;
 	}
 
-	PointCoordinateType h1 = (r1*height) / (r2 - r1);
-	PointCoordinateType a1 = static_cast<PointCoordinateType>(M_PI)*r1*sqrt(PDMS_SQR(r1) + PDMS_SQR(h1));
-	PointCoordinateType a2 = static_cast<PointCoordinateType>(M_PI)*r2*sqrt(PDMS_SQR(r2) + PDMS_SQR(h1 + height));
+	double h1 = (r1 * height) / (r2 - r1);
+	double a1 = M_PI * r1 * sqrt(PDMS_SQR(r1) + PDMS_SQR(h1));
+	double a2 = M_PI * r2 * sqrt(PDMS_SQR(r2) + PDMS_SQR(h1 + height));
 
-	return a2 - a1;
+	return static_cast<PointCoordinateType>(a2 - a1);
 }
 
-std::pair<int, int> Cone::write(std::ostream &output, int nbtabs) const
+std::pair<int, int> Cone::write(std::ostream& output, int nbtabs) const
 {
-	int i;
-
-	for (i = 0; i < nbtabs; i++)
+	for (int i = 0; i < nbtabs; i++)
 		output << "\t";
 	output << "NEW CONE";
 	if (strlen(name))
 		output << " /" << name;
-	output << std::endl;
+	output << "\n";
 
-	for (i = 0; i <= nbtabs; i++)
+	for (int i = 0; i <= nbtabs; i++)
 		output << "\t";
-	output << "HEIGHT " << height << std::endl;
-	for (i = 0; i <= nbtabs; i++)
+	output << "HEIGHT " << height << "\n";
+	for (int i = 0; i <= nbtabs; i++)
 		output << "\t";
-	output << "DBOTTOM " << dbottom << std::endl;
-	for (i = 0; i <= nbtabs; i++)
+	output << "DBOTTOM " << dbottom << "\n";
+	for (int i = 0; i <= nbtabs; i++)
 		output << "\t";
-	output << "DTOP " << dtop << std::endl;
-	for (i = 0; i <= nbtabs; i++)
+	output << "DTOP " << dtop << "\n";
+	for (int i = 0; i <= nbtabs; i++)
 		output << "\t";
-	output << "AT X " << position[0] << " Y " << position[1] << " Z " << position[2] << std::endl;
-	for (i = 0; i <= nbtabs; i++)
+	output << "AT X " << position[0] << " Y " << position[1] << " Z " << position[2] << "\n";
+	for (int i = 0; i <= nbtabs; i++)
 		output << "\t";
 	output << "ORI ";
 	output << "X is X " << orientation[0][0] << " Y " << orientation[0][1] << " Z " << orientation[0][2];
-	output << " AND Z is X " << orientation[2][0] << " Y " << orientation[2][1] << " Z " << orientation[2][2] << std::endl;
+	output << " AND Z is X " << orientation[2][0] << " Y " << orientation[2][1] << " Z " << orientation[2][2] << "\n";
 
-	for (i = 0; i < nbtabs; i++)
+	for (int i = 0; i < nbtabs; i++)
 		output << "\t";
-	output << "END" << std::endl;
+	output << "END\n";
 
-	return std::pair<int, int>(0, 1);
+	return {0, 1};
 }
 
 Box::Box()
-	: lengths(0, 0, 0)
+    : lengths(0, 0, 0)
 {
 }
 
@@ -1794,7 +1909,8 @@ bool Box::setValue(Token t, PointCoordinateType value)
 	case PDMS_ZLENGTH:
 		lengths[2] = value;
 		break;
-	default: return false;
+	default:
+		return false;
 	}
 	return true;
 }
@@ -1804,11 +1920,9 @@ PointCoordinateType Box::surface() const
 	return 2 * ((lengths[0] * lengths[1]) + (lengths[1] * lengths[2]) + (lengths[2] * lengths[0]));
 }
 
-std::pair<int, int> Box::write(std::ostream &output, int nbtabs) const
+std::pair<int, int> Box::write(std::ostream& output, int nbtabs) const
 {
-	int i;
-
-	for (i = 0; i < nbtabs; i++)
+	for (int i = 0; i < nbtabs; i++)
 		output << "\t";
 	if (negative)
 		output << "NEW NBOX";
@@ -1816,39 +1930,39 @@ std::pair<int, int> Box::write(std::ostream &output, int nbtabs) const
 		output << "NEW BOX";
 	if (strlen(name))
 		output << " /" << name;
-	output << std::endl;
+	output << "\n";
 
-	for (i = 0; i <= nbtabs; i++)
+	for (int i = 0; i <= nbtabs; i++)
 		output << "\t";
-	output << "XLENGTH " << lengths[0] << std::endl;
-	for (i = 0; i <= nbtabs; i++)
+	output << "XLENGTH " << lengths[0] << "\n";
+	for (int i = 0; i <= nbtabs; i++)
 		output << "\t";
-	output << "YLENGTH " << lengths[1] << std::endl;
-	for (i = 0; i <= nbtabs; i++)
+	output << "YLENGTH " << lengths[1] << "\n";
+	for (int i = 0; i <= nbtabs; i++)
 		output << "\t";
-	output << "ZLENGTH " << lengths[2] << std::endl;
-	for (i = 0; i <= nbtabs; i++)
+	output << "ZLENGTH " << lengths[2] << "\n";
+	for (int i = 0; i <= nbtabs; i++)
 		output << "\t";
-	output << "AT X " << position[0] << " Y " << position[1] << " Z " << position[2] << std::endl;
-	for (i = 0; i <= nbtabs; i++)
+	output << "AT X " << position[0] << " Y " << position[1] << " Z " << position[2] << "\n";
+	for (int i = 0; i <= nbtabs; i++)
 		output << "\t";
 	output << "ORI ";
 	output << "X is X " << orientation[0][0] << " Y " << orientation[0][1] << " Z " << orientation[0][2];
-	output << " AND Z is X " << orientation[2][0] << " Y " << orientation[2][1] << " Z " << orientation[2][2] << std::endl;
+	output << " AND Z is X " << orientation[2][0] << " Y " << orientation[2][1] << " Z " << orientation[2][2] << "\n";
 
-	for (i = 0; i < nbtabs; i++)
+	for (int i = 0; i < nbtabs; i++)
 		output << "\t";
-	output << "END" << std::endl;
+	output << "END\n";
 
-	return std::pair<int, int>(0, 1);
+	return {0, 1};
 }
 
-std::pair<int, int> Vertex::write(std::ostream &output, int nbtabs) const
+std::pair<int, int> Vertex::write(std::ostream& output, int nbtabs) const
 {
-	return std::pair<int, int>(0, 0);
+	return {0, 0};
 }
 
-bool Loop::push(GenericItem *i)
+bool Loop::push(GenericItem* i)
 {
 	if (i->getType() == PDMS_VERTEX)
 	{
@@ -1861,23 +1975,23 @@ bool Loop::push(GenericItem *i)
 	return false;
 }
 
-void Loop::remove(GenericItem *i)
+void Loop::remove(GenericItem* i)
 {
-	for (std::list<Vertex*>::iterator it = loop.begin(); it != loop.end(); )
+	for (std::list<Vertex*>::iterator it = loop.begin(); it != loop.end();)
 	{
 		if ((*it) == i)
-			loop.erase(it);
+			it = loop.erase(it);
 		else
 			++it;
 	}
 }
 
-std::pair<int, int> Loop::write(std::ostream &output, int nbtabs) const
+std::pair<int, int> Loop::write(std::ostream& output, int nbtabs) const
 {
-	return std::pair<int, int>(0, 0);
+	return {0, 0};
 }
 
-bool Extrusion::push(GenericItem *l)
+bool Extrusion::push(GenericItem* l)
 {
 	if (l->getType() == PDMS_LOOP)
 	{
@@ -1900,7 +2014,8 @@ PointCoordinateType Extrusion::surface() const
 	if (loop)
 	{
 		std::list<Vertex*>::const_iterator it1 = loop->loop.begin();
-		std::list<Vertex*>::const_iterator it2 = it1; ++it2;
+		std::list<Vertex*>::const_iterator it2 = it1;
+		++it2;
 		while (it1 != loop->loop.end())
 		{
 			if (it2 == loop->loop.end())
@@ -1914,22 +2029,36 @@ PointCoordinateType Extrusion::surface() const
 	return p * static_cast<PointCoordinateType>(height);
 }
 
-std::pair<int, int> Extrusion::write(std::ostream &output, int nbtabs) const
+std::pair<int, int> Extrusion::write(std::ostream& output, int nbtabs) const
 {
-	return std::pair<int, int>(0, 0);
+	return {0, 0};
 }
 
 bool Pyramid::setValue(Token t, PointCoordinateType value)
 {
 	switch (t)
 	{
-	case PDMS_X_BOTTOM:xbot = value; break;
-	case PDMS_Y_BOTTOM:ybot = value; break;
-	case PDMS_X_TOP:xtop = value; break;
-	case PDMS_Y_TOP:ytop = value; break;
-	case PDMS_X_OFF:xoff = value; break;
-	case PDMS_Y_OFF:yoff = value; break;
-	case PDMS_HEIGHT:height = value; break;
+	case PDMS_X_BOTTOM:
+		xbot = value;
+		break;
+	case PDMS_Y_BOTTOM:
+		ybot = value;
+		break;
+	case PDMS_X_TOP:
+		xtop = value;
+		break;
+	case PDMS_Y_TOP:
+		ytop = value;
+		break;
+	case PDMS_X_OFF:
+		xoff = value;
+		break;
+	case PDMS_Y_OFF:
+		yoff = value;
+		break;
+	case PDMS_HEIGHT:
+		height = value;
+		break;
 	default:
 		return false;
 	}
@@ -1938,24 +2067,34 @@ bool Pyramid::setValue(Token t, PointCoordinateType value)
 
 PointCoordinateType Pyramid::surface() const
 {
-	//TODO
+	// TODO
 	return 0;
 }
 
-std::pair<int, int> Pyramid::write(std::ostream &output, int nbtabs) const
+std::pair<int, int> Pyramid::write(std::ostream& output, int nbtabs) const
 {
-	return std::pair<int, int>(0, 0);
+	return {0, 0};
 }
 
 bool Snout::setValue(Token t, PointCoordinateType value)
 {
 	switch (t)
 	{
-	case PDMS_BOTTOM_DIAMETER:dbottom = value; break;
-	case PDMS_TOP_DIAMETER:dtop = value; break;
-	case PDMS_X_OFF:xoff = value; break;
-	case PDMS_Y_OFF:yoff = value; break;
-	case PDMS_HEIGHT:height = value; break;
+	case PDMS_BOTTOM_DIAMETER:
+		dbottom = value;
+		break;
+	case PDMS_TOP_DIAMETER:
+		dtop = value;
+		break;
+	case PDMS_X_OFF:
+		xoff = value;
+		break;
+	case PDMS_Y_OFF:
+		yoff = value;
+		break;
+	case PDMS_HEIGHT:
+		height = value;
+		break;
 	default:
 		return false;
 	}
@@ -1964,11 +2103,11 @@ bool Snout::setValue(Token t, PointCoordinateType value)
 
 PointCoordinateType Snout::surface() const
 {
-	//TODO
+	// TODO
 	return 0;
 }
 
-std::pair<int, int> Snout::write(std::ostream &output, int nbtabs) const
+std::pair<int, int> Snout::write(std::ostream& output, int nbtabs) const
 {
-	return std::pair<int, int>(0, 0);
+	return {0, 0};
 }

@@ -514,22 +514,37 @@
                </item>
                <item>
                 <property name="text">
-                 <string>+Barycenter</string>
+                 <string>From barycenter</string>
                 </property>
                </item>
                <item>
                 <property name="text">
-                 <string>- Barycenter</string>
+                 <string>Towards barycenter</string>
                 </property>
                </item>
                <item>
                 <property name="text">
-                 <string notr="true">+ (0,0,0)</string>
+                 <string notr="true">From origin (0,0,0)</string>
                 </property>
                </item>
                <item>
                 <property name="text">
-                 <string notr="true">- (0,0,0)</string>
+                 <string notr="true">Towards origin (0,0,0)</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>Existing</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>From sensor origin</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>Towards sensor origin</string>
                 </property>
                </item>
               </widget>
@@ -537,10 +552,10 @@
              <item row="1" column="0">
               <widget class="QRadioButton" name="normOriUseCloudRadioButton">
                <property name="toolTip">
-                <string>Sensor(s) position(s) as a cloud (one point per position)</string>
+                <string>Typically one or several sensor positions store as a cloud (one point per position)</string>
                </property>
                <property name="text">
-                <string>Use sensor position(s)</string>
+                <string>Use origin point(s)</string>
                </property>
               </widget>
              </item>

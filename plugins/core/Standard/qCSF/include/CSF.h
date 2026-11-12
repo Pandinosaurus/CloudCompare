@@ -1,3 +1,5 @@
+#pragma once
+
 //#######################################################################################
 //#                                                                                     #
 //#                              CLOUDCOMPARE PLUGIN: qCSF                              #
@@ -16,7 +18,7 @@
 //#  Zhang W, Qi J, Wan P, Wang H, Xie D, Wang X, Yan G. An Easy-to-Use Airborne LiDAR  #
 //#  Data Filtering Method Based on Cloth Simulation. Remote Sensing. 2016; 8(6):501.   #
 //#                                                                                     #
-//#                                     Copyright ©                                     #
+//#                                     Copyright (c)                                   #
 //#               RAMM laboratory, School of Geography, Beijing Normal University       #
 //#                               (http://ramm.bnu.edu.cn/)                             #
 //#                                                                                     #
@@ -26,65 +28,53 @@
 //#                                                                                     #
 //#######################################################################################
 
-#ifndef _CSF_H_
-#define _CSF_H_
-
 #include "wlPointCloud.h"
 #include "Cloth.h"
 
 //system
 #include <vector>
-#include <string>
 
 class ccMainAppInterface;
+class ccPointCloud;
 class QWidget;
 class ccMesh;
 
 class CSF
 {
 public:
-	CSF(wl::PointCloud& cloud);
-	virtual ~CSF() = default;
 
-	//input PC from files
-	bool readPointsFromFile(std::string filename);
-
-	//save the ground points to file
-	void saveGroundPoints(const std::vector<int>& grp, std::string path = "");
-	void saveOffGroundPoints(const std::vector<int>& grp, std::string path = "");
-	
-	//The main program: Do filtering
-	bool do_filtering(	std::vector<int>& groundIndexes,
-						std::vector<int>& offGroundIndexes,
-						bool exportClothMesh,
-						ccMesh* &clothMesh,
-						ccMainAppInterface* app = 0,
-						QWidget* parent = 0);
-
-private:
-	wl::PointCloud& point_cloud;
-
-public:
- 
+	//! Parameters
 	struct Parameters
 	{
-		//parameters
-		int k_nearest_points;
+		int k_nearest_points = 1;
+		bool smoothSlope = true;
+		double time_step = 0.65;
+		double class_threshold = 0.5;
+		double cloth_resolution = 1.0;
+		int rigidness = 3;
+		int iterations = 500;
 
-		bool bSloopSmooth;
-
-		double time_step;
-
-		double class_threshold;
-
-		double cloth_resolution;
-
-		int rigidness;
-
-		int iterations;
+		// constants
+		const double clothYHeight = 0.05; // origin cloth height
+		const int clothBuffer = 2; // cloth buffer (grid margin size)
+		const double gravity = 0.2;
 	};
-	
-	Parameters params;
-};
 
-#endif
+	//! Main filtering routine
+	static bool Apply(	const wl::PointCloud& csfPointCloud,
+						const Parameters& params,
+						std::vector<bool>& isGround,
+						bool exportClothMesh,
+						ccMesh* &clothMesh,
+						ccMainAppInterface* app = nullptr,
+						QWidget* parent = nullptr);
+
+	//! Shortcut for CloudCompare
+	static bool Apply(	ccPointCloud* cloud,
+						const Parameters& params,
+						ccPointCloud*& groundCloud,
+						ccPointCloud*& offGroundCloud,
+						bool exportClothMesh,
+						ccMesh*& clothMesh,
+						ccMainAppInterface* app = nullptr);
+};

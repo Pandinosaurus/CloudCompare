@@ -17,6 +17,10 @@
 
 #include "ccMouseCircle.h"
 
+//Qt
+#include <QWheelEvent>
+
+//System
 #include <cmath>
 
 //! Unit circle
@@ -38,8 +42,10 @@ struct Circle
 };
 static Circle s_unitCircle;
 
-ccMouseCircle::ccMouseCircle(ccGLWindow* owner, QString name) 
+ccMouseCircle::ccMouseCircle(ccGLWindowInterface* owner, QString name) 
 	: cc2DViewportObject(name.isEmpty() ? "label" : name)
+	, m_owner(nullptr)
+	, m_pixelSize(0.0f)
 	, m_radius(50)
 	, m_radiusStep(4)
 {
@@ -49,7 +55,7 @@ ccMouseCircle::ccMouseCircle(ccGLWindow* owner, QString name)
 	//attach to owner
 	assert(owner); //check valid pointer
 	ccMouseCircle::m_owner = owner;
-	m_owner->installEventFilter(this);
+	m_owner->asQObject()->installEventFilter(this);
 	m_owner->addToOwnDB(this, true);
 }
 
@@ -58,7 +64,7 @@ ccMouseCircle::~ccMouseCircle()
 	//cleanup event listner
 	if (m_owner)
 	{
-		m_owner->removeEventFilter(this);
+		m_owner->asQObject()->removeEventFilter(this);
 		m_owner->removeFromOwnDB(this);
 	}
 }
@@ -103,11 +109,10 @@ void ccMouseCircle::draw(CC_DRAW_CONTEXT& context)
 	//test viewport parameters
 	const ccViewportParameters& params = context.display->getViewportParameters();
 
-	ccLog::Print(QString("WidthAtFocalDist = %1 (= %2 x %3)").arg(params.computeWidthAtFocalDist()).arg(params.computeDistanceToWidthRatio()).arg(params.getFocalDistance()));
-	m_pixelSize = (context.glW != 0 ? params.computeWidthAtFocalDist() / context.glW : 0);
+	m_pixelSize = params.computePixelSize(context.glW, context.glH);
 
 	//get mouse position
-	QPoint p = m_owner->asWidget()->mapFromGlobal(QCursor::pos());
+	QPoint p = m_owner->asWidget()->mapFromGlobal(QCursor::pos()) * context.devicePixelRatio;
 	int mx = p.x(); //mouse x-coord
 	int my = context.glH - 1 - p.y(); //mouse y-coord in OpenGL coordinates (origin at bottom left, not top left)
 	
@@ -124,7 +129,7 @@ void ccMouseCircle::draw(CC_DRAW_CONTEXT& context)
 			glFunc->glLineStipple(1, 0xAAAA);
 			glFunc->glEnable(GL_LINE_STIPPLE);
 		}
-		glFunc->glColor4ubv(ccColor::red.rgba);
+		ccGL::Color(glFunc, ccColor::red);
 		glFunc->glBegin(GL_LINE_LOOP);
 		for (int n = 0; n < Circle::Resolution; n++)
 		{
@@ -152,13 +157,13 @@ bool ccMouseCircle::eventFilter(QObject* obj, QEvent* event)
 
 	if (event->type() == QEvent::Wheel)
 	{
-		QWheelEvent* wheelEvent = static_cast<QWheelEvent *>(event);
+		QWheelEvent* wheelEvent = static_cast<QWheelEvent*>(event);
 
 		//is control down
 		if (wheelEvent->modifiers().testFlag(Qt::ControlModifier))
 		{
 			//adjust radius (+ avoid really small radius)
-			m_radius = std::max(m_radiusStep, m_radius - static_cast<int>(m_radiusStep * (wheelEvent->delta() / 100.0)));
+			m_radius = std::max(m_radiusStep, m_radius - static_cast<int>(m_radiusStep * (wheelEvent->angleDelta().y() / 100.0)));
 			//repaint
 			m_owner->redraw(true, false);
 		}

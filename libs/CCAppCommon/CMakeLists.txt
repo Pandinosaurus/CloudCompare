@@ -8,28 +8,40 @@ add_subdirectory( src )
 add_subdirectory( ui )
 
 target_link_libraries( ${PROJECT_NAME}
-	CCPluginAPI
+	PUBLIC
+		CCPluginAPI
+	PRIVATE
+		CC_FBO_LIB
 )
 
 target_compile_definitions( ${PROJECT_NAME} PRIVATE CCAPPCOMMON_LIBRARY_BUILD )
+
+if( APPLE AND NOT OPTION_DEPLOY_QT )
+	# bin/, lib/cloudcompare and share/cloudcompare instead of an application bundle
+	target_compile_definitions( ${PROJECT_NAME} PRIVATE CC_INSTALL_FHS_LAYOUT )
+endif()
 
 set_target_properties( ${PROJECT_NAME} PROPERTIES
 	AUTOUIC ON # FIXME Remove after everything has moved to targets and we can set it globally
 	CXX_VISIBILITY_PRESET hidden
 )
 
-if( OPTION_SUPPORT_GAMEPADS )
-	find_package( Qt5
-		COMPONENTS
-			Gamepad
-		REQUIRED
-	)
+# the qdarkstyle folder of QDarkStyleSheet (the submodule, or e.g. an installed
+# qdarkstyle Python package, which ships the same style sheets)
+set( QDARKSTYLESHEET_DIR "${CMAKE_CURRENT_LIST_DIR}/QDarkStyleSheet/qdarkstyle" CACHE PATH "QDarkStyleSheet's qdarkstyle folder (dark/ and light/ style sheets)" )
 
-	target_link_libraries( ${PROJECT_NAME} Qt5::Gamepad )
-endif()
+target_sources(${PROJECT_NAME}
+		PRIVATE
+		${QDARKSTYLESHEET_DIR}/dark/darkstyle.qrc
+		${QDARKSTYLESHEET_DIR}/light/lightstyle.qrc
+)
 
-if( OPTION_SUPPORT_3DCONNEXION_DEVICES )
-	target_link_3DXWARE( ${PROJECT_NAME} )
+# We run find_package here for HIDAPI since it will link to the CCAppCommon
+# if we run it only in the 3dConnexion subdir, it fails to create hidapi::hidapi targets in scope
+find_package( hidapi 0.13.0 CONFIG QUIET )
+
+if( OPTION_SUPPORT_3DMOUSE_WITH_3DxWARE )
+	target_link_3DxWARE( ${PROJECT_NAME} )
 endif()
 
 InstallSharedLibrary( TARGET ${PROJECT_NAME} )

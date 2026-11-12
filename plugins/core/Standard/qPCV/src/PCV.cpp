@@ -22,11 +22,6 @@
 //Qt
 #include <QString>
 
-#ifdef USE_VLD
-//VLD
-#include <vld.h>
-#endif
-
 //System
 #include <algorithm>
 #include <cassert>
@@ -53,7 +48,7 @@ static int gcd(int num1, int num2)
 	\param[out] dirs set of N points
 	\return success
 **/
-static bool SampleSphere(unsigned N, std::vector<CCVector3>& dirs)
+static bool SampleSphere(unsigned N, std::vector<CCVector3d>& dirs)
 {
 	static const double c_eps = 2.2204e-16;
 	static const double c_twist = 4.0;
@@ -66,7 +61,7 @@ static bool SampleSphere(unsigned N, std::vector<CCVector3>& dirs)
 
 	try
 	{
-		dirs.resize(N, CCVector3(0, 0, 1));
+		dirs.resize(N, CCVector3d(0, 0, 1));
 	}
 	catch (const std::bad_alloc&)
 	{
@@ -114,7 +109,9 @@ static bool SampleSphere(unsigned N, std::vector<CCVector3>& dirs)
 			{
 				double f = floor(mbar[i] + alpha + fuzz);
 				if ((mbar[i] - f) >= 0.5)
+				{
 					f = ceil(mbar[i] + alpha - fuzz);
+				}
 				m[i] = static_cast<int>(f);
 
 				alpha += mbar[i] - m[i];
@@ -151,9 +148,7 @@ static bool SampleSphere(unsigned N, std::vector<CCVector3>& dirs)
 				{
 					double theta = 2.0*M_PI * (offset[i] + static_cast<double>(j) / m[i]);
 
-					dirs[rayIndex++] = CCVector3(static_cast<PointCoordinateType>(r*cos(theta)),
-						static_cast<PointCoordinateType>(r*sin(theta)),
-						static_cast<PointCoordinateType>(h));
+					dirs[rayIndex++] = CCVector3d(r*cos(theta), r*sin(theta), h);
 				}
 
 				z -= static_cast<double>(m[i] + m[i + 1]) / N;
@@ -168,12 +163,12 @@ static bool SampleSphere(unsigned N, std::vector<CCVector3>& dirs)
 		return false;
 	}
 
-	dirs[N - 1] = CCVector3(0, 0, -1);
+	dirs[N - 1] = CCVector3d(0, 0, -1);
 
 	return true;
 }
 
-bool PCV::GenerateRays(unsigned numberOfRays, std::vector<CCVector3>& rays, bool mode360/*=true*/)
+bool PCV::GenerateRays(unsigned numberOfRays, std::vector<CCVector3d>& rays, bool mode360/*=true*/)
 {
 	//generates light directions
 	unsigned rayCount = numberOfRays * (mode360 ? 1 : 2);
@@ -182,7 +177,7 @@ bool PCV::GenerateRays(unsigned numberOfRays, std::vector<CCVector3>& rays, bool
 		return false;
 	}
 
-	//we keep only the light directions that meets input parameters (non predictible if not in 360° mode!)
+	//we keep only the light directions that meets input parameters (non predictible if not in 360 deg mode!)
 	if (!mode360)
 	{
 		unsigned lastIndex = 0;
@@ -206,16 +201,16 @@ bool PCV::GenerateRays(unsigned numberOfRays, std::vector<CCVector3>& rays, bool
 
 int PCV::Launch(unsigned numberOfRays,
 				GenericCloud* vertices,
-				GenericMesh* mesh/*=0*/,
+				GenericMesh* mesh/*=nullptr*/,
 				bool meshIsClosed/*=false*/,
 				bool mode360/*=true*/,
 				unsigned width/*=1024*/,
 				unsigned height/*=1024*/,
-				CCCoreLib::GenericProgressCallback* progressCb/*=0*/,
+				CCCoreLib::GenericProgressCallback* progressCb/*=nullptr*/,
 				const QString& entityName/*=QString()*/)
 {
 	//generates light directions
-	std::vector<CCVector3> rays;
+	std::vector<CCVector3d> rays;
 	if (!GenerateRays(numberOfRays, rays, mode360))
 	{
 		return -2;
@@ -229,13 +224,13 @@ int PCV::Launch(unsigned numberOfRays,
 	return static_cast<int>(rays.size());
 }
 
-bool PCV::Launch(const std::vector<CCVector3>& rays,
+bool PCV::Launch(const std::vector<CCVector3d>& rays,
 				 CCCoreLib::GenericCloud* vertices,
-				 CCCoreLib::GenericMesh* mesh/*=0*/,
+				 CCCoreLib::GenericMesh* mesh/*=nullptr*/,
 				 bool meshIsClosed/*=false*/,
 				 unsigned width/*=1024*/,
 				 unsigned height/*=1024*/,
-				 CCCoreLib::GenericProgressCallback* progressCb/*=0*/,
+				 CCCoreLib::GenericProgressCallback* progressCb/*=nullptr*/,
 				 const QString& entityName/*=QString()*/)
 {
 	if (rays.empty())
@@ -261,8 +256,6 @@ bool PCV::Launch(const std::vector<CCVector3>& rays,
 		return false;
 	}
 
-	/*** Main illumination loop ***/
-
 	CCCoreLib::NormalizedProgress nProgress(progressCb, numberOfRays);
 	if (progressCb)
 	{
@@ -283,19 +276,21 @@ bool PCV::Launch(const std::vector<CCVector3>& rays,
 		progressCb->start();
 	}
 
-	bool success = true;
-
+	/*** Main illumination loop ***/
 	//must be done after progress dialog display!
 	PCVContext win;
+	bool success = true;
 	if (win.init(width, height, vertices, mesh, meshIsClosed))
 	{
 		for (unsigned i = 0; i < numberOfRays; ++i)
 		{
-			//set current 'light' direction
-			win.setViewDirection(rays[i]);
-
-			//flag viewed vertices
-			win.GLAccumPixel(visibilityCount);
+			//flag vertices which are in front of the others when viewed along the current 'ray' direction
+			int result = win.glAccumPixel(visibilityCount, rays[i]);
+			if (result < 0)
+			{
+				success = false;
+				break;
+			}
 
 			if (progressCb && !nProgress.oneStep())
 			{

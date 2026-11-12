@@ -1,80 +1,96 @@
-//##########################################################################
-//#                                                                        #
-//#                              CLOUDCOMPARE                              #
-//#                                                                        #
-//#  This program is free software; you can redistribute it and/or modify  #
-//#  it under the terms of the GNU General Public License as published by  #
-//#  the Free Software Foundation; version 2 or later of the License.      #
-//#                                                                        #
-//#  This program is distributed in the hope that it will be useful,       #
-//#  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
-//#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
-//#  GNU General Public License for more details.                          #
-//#                                                                        #
-//#          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
-//#                                                                        #
-//##########################################################################
+#pragma once
 
-#ifndef CC_ADVANCED_TYPES_HEADER
-#define CC_ADVANCED_TYPES_HEADER
+// ##########################################################################
+// #                                                                        #
+// #                              CLOUDCOMPARE                              #
+// #                                                                        #
+// #  This program is free software; you can redistribute it and/or modify  #
+// #  it under the terms of the GNU General Public License as published by  #
+// #  the Free Software Foundation; version 2 or later of the License.      #
+// #                                                                        #
+// #  This program is distributed in the hope that it will be useful,       #
+// #  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
+// #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
+// #  GNU General Public License for more details.                          #
+// #                                                                        #
+// #          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
+// #                                                                        #
+// ##########################################################################
 
-//Local
+// Local
 #include "ccArray.h"
+#include "ccBasicTypes.h"
 #include "ccColorTypes.h"
-#include "ccNormalCompressor.h"
 
 /***************************************************
-	  Advanced cloudCompare types (containers)
+      Advanced cloudCompare types (containers)
 ***************************************************/
 
 //! Array of compressed 3D normals (single index)
 class NormsIndexesTableType : public ccArray<CompressedNormType, 1, CompressedNormType>
 {
-public:
+  public:
+	//! Shared pointer type
+	using Shared = std::shared_ptr<NormsIndexesTableType>;
+
 	//! Default constructor
 	QCC_DB_LIB_API NormsIndexesTableType();
 	~NormsIndexesTableType() override = default;
-	
-	//inherited from ccArray/ccHObject
-	CC_CLASS_ENUM getClassID() const override { return CC_TYPES::NORMAL_INDEXES_ARRAY; }
+
+	// inherited from ccArray/ccHObject
+	CC_CLASS_ENUM getClassID() const override
+	{
+		return CC_TYPES::NORMAL_INDEXES_ARRAY;
+	}
+	short minimumFileVersion() const override
+	{
+		return 41;
+	}
 
 	//! Duplicates array (overloaded from ccArray::clone)
-	NormsIndexesTableType* clone() override
+	Shared clone()
 	{
-		NormsIndexesTableType* cloneArray = new NormsIndexesTableType();
+		Shared cloneArray = std::make_shared<NormsIndexesTableType>();
 		if (!copy(*cloneArray))
 		{
 			ccLog::Warning("[NormsIndexesTableType::clone] Failed to clone array (not enough memory)");
-			cloneArray->release();
 			return nullptr;
 		}
 		cloneArray->setName(getName());
 		return cloneArray;
 	}
 
-	//inherited from ccHObject/ccArray
-	QCC_DB_LIB_API bool fromFile_MeOnly(QFile& in, short dataVersion, int flags, LoadedIDMap& oldToNewIDMap) override;
+	// inherited from ccHObject/ccArray
+	QCC_DB_LIB_API bool fromFile_MeOnly(QFile& in, LoadingContext& context) override;
 };
 
 //! Array of (uncompressed) 3D normals (Nx,Ny,Nz)
-class NormsTableType : public ccArray<CCVector3, 3,PointCoordinateType>
+class NormsTableType : public ccArray<CCVector3, 3, PointCoordinateType>
 {
-public:
-	//! Default constructor
-	NormsTableType() : ccArray<CCVector3, 3, PointCoordinateType>("Normals") {}
-	virtual ~NormsTableType() = default;
+  public:
+	//! Shared pointer type
+	using Shared = std::shared_ptr<NormsTableType>;
 
-	//inherited from ccArray/ccHObject
-	CC_CLASS_ENUM getClassID() const override { return CC_TYPES::NORMALS_ARRAY; }
+	//! Default constructor
+	NormsTableType()
+	    : ccArray<CCVector3, 3, PointCoordinateType>("Normals")
+	{
+	}
+	~NormsTableType() override = default;
+
+	// inherited from ccArray/ccHObject
+	CC_CLASS_ENUM getClassID() const override
+	{
+		return CC_TYPES::NORMALS_ARRAY;
+	}
 
 	//! Duplicates array (overloaded from ccArray::clone)
-	NormsTableType* clone() override
+	Shared clone()
 	{
-		NormsTableType* cloneArray = new NormsTableType();
+		Shared cloneArray = std::make_shared<NormsTableType>();
 		if (!copy(*cloneArray))
 		{
 			ccLog::Warning("[NormsTableType::clone] Failed to clone array (not enough memory)");
-			cloneArray->release();
 			return nullptr;
 		}
 		cloneArray->setName(getName());
@@ -85,22 +101,30 @@ public:
 //! Array of RGB colors for each point
 class ColorsTableType : public ccArray<ccColor::Rgb, 3, ColorCompType>
 {
-public:
-	//! Default constructor
-	ColorsTableType() : ccArray<ccColor::Rgb, 3, ColorCompType>("RGB colors") {}
-	virtual ~ColorsTableType() = default;
+  public:
+	//! Shared pointer type
+	using Shared = std::shared_ptr<ColorsTableType>;
 
-	//inherited from ccArray/ccHObject
-	CC_CLASS_ENUM getClassID() const override { return CC_TYPES::RGB_COLOR_ARRAY; }
+	//! Default constructor
+	ColorsTableType()
+	    : ccArray<ccColor::Rgb, 3, ColorCompType>("RGB colors")
+	{
+	}
+	~ColorsTableType() override = default;
+
+	// inherited from ccArray/ccHObject
+	CC_CLASS_ENUM getClassID() const override
+	{
+		return CC_TYPES::RGB_COLOR_ARRAY;
+	}
 
 	//! Duplicates array (overloaded from ccArray::clone)
-	ColorsTableType* clone() override
+	Shared clone()
 	{
-		ColorsTableType* cloneArray = new ColorsTableType();
+		Shared cloneArray = std::make_shared<ColorsTableType>();
 		if (!copy(*cloneArray))
 		{
 			ccLog::Warning("[ColorsTableType::clone] Failed to clone array (not enough memory)");
-			cloneArray->release();
 			return nullptr;
 		}
 		cloneArray->setName(getName());
@@ -111,22 +135,30 @@ public:
 //! Array of RGBA colors for each point
 class RGBAColorsTableType : public ccArray<ccColor::Rgba, 4, ColorCompType>
 {
-public:
-	//! Default constructor
-	RGBAColorsTableType() : ccArray<ccColor::Rgba, 4, ColorCompType>("RGBA colors") {}
-	virtual ~RGBAColorsTableType() = default;
+  public:
+	//! Shared pointer type
+	using Shared = std::shared_ptr<RGBAColorsTableType>;
 
-	//inherited from ccArray/ccHObject
-	CC_CLASS_ENUM getClassID() const override { return CC_TYPES::RGBA_COLOR_ARRAY; }
+	//! Default constructor
+	RGBAColorsTableType()
+	    : ccArray<ccColor::Rgba, 4, ColorCompType>("RGBA colors")
+	{
+	}
+	~RGBAColorsTableType() override = default;
+
+	// inherited from ccArray/ccHObject
+	CC_CLASS_ENUM getClassID() const override
+	{
+		return CC_TYPES::RGBA_COLOR_ARRAY;
+	}
 
 	//! Duplicates array (overloaded from ccArray::clone)
-	RGBAColorsTableType* clone() override
+	Shared clone()
 	{
-		RGBAColorsTableType* cloneArray = new RGBAColorsTableType();
+		Shared cloneArray = std::make_shared<RGBAColorsTableType>();
 		if (!copy(*cloneArray))
 		{
 			ccLog::Warning("[RGBAColorsTableType::clone] Failed to clone array (not enough memory)");
-			cloneArray->release();
 			return nullptr;
 		}
 		cloneArray->setName(getName());
@@ -137,8 +169,16 @@ public:
 //! 2D texture coordinates
 struct TexCoords2D
 {
-	TexCoords2D() : tx(-1.0f), ty(-1.0f) {}
-	TexCoords2D(float x, float y) : tx(x), ty(y) {}
+	TexCoords2D()
+	    : tx(-1.0f)
+	    , ty(-1.0f)
+	{
+	}
+	TexCoords2D(float x, float y)
+	    : tx(x)
+	    , ty(y)
+	{
+	}
 
 	union
 	{
@@ -153,27 +193,33 @@ struct TexCoords2D
 //! Array of 2D texture coordinates
 class TextureCoordsContainer : public ccArray<TexCoords2D, 2, float>
 {
-public:
-	//! Default constructor
-	TextureCoordsContainer() : ccArray<TexCoords2D, 2, float>("Texture coordinates") {}
-	virtual ~TextureCoordsContainer() = default;
+  public:
+	//! Shared pointer type
+	using Shared = std::shared_ptr<TextureCoordsContainer>;
 
-	//inherited from ccArray/ccHObject
-	CC_CLASS_ENUM getClassID() const override { return CC_TYPES::TEX_COORDS_ARRAY; }
+	//! Default constructor
+	TextureCoordsContainer()
+	    : ccArray<TexCoords2D, 2, float>("Texture coordinates")
+	{
+	}
+	~TextureCoordsContainer() override = default;
+
+	// inherited from ccArray/ccHObject
+	CC_CLASS_ENUM getClassID() const override
+	{
+		return CC_TYPES::TEX_COORDS_ARRAY;
+	}
 
 	//! Duplicates array (overloaded from ccArray::clone)
-	TextureCoordsContainer* clone() override
+	Shared clone()
 	{
-		TextureCoordsContainer* cloneArray = new TextureCoordsContainer();
+		Shared cloneArray = std::make_shared<TextureCoordsContainer>();
 		if (!copy(*cloneArray))
 		{
 			ccLog::Warning("[TextureCoordsContainer::clone] Failed to clone array (not enough memory)");
-			cloneArray->release();
 			return nullptr;
 		}
 		cloneArray->setName(getName());
 		return cloneArray;
 	}
 };
-
-#endif //CC_ADVANCED_TYPES_HEADER

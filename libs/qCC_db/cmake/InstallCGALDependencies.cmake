@@ -10,12 +10,17 @@ if( WIN32 )
 	
 	if( CCCORELIB_USE_CGAL )
 	
-		list(GET GMP_LIBRARIES 0 FIRST_GMP_LIB_FILE)
+		if( NOT CMAKE_CONFIGURATION_TYPES )
+			list(GET GMP_LIBRARIES 0 FIRST_GMP_LIB_FILE)
+		else()
+			list(GET GMP_LIBRARIES 1 FIRST_GMP_LIB_FILE)
+		endif()
+
 		get_filename_component(GMP_LIB_FOLDER ${FIRST_GMP_LIB_FILE} DIRECTORY)
 
 		file( GLOB GMP_DLL_FILES ${GMP_LIB_FOLDER}/*.dll )
 		foreach( dest ${INSTALL_DESTINATIONS} )
-			copy_files( "${GMP_DLL_FILES}" ${dest} ) # Mind the quotes!
+			copy_files( "${GMP_DLL_FILES}" ${dest} 1 ) # Mind the quotes!
 		endforeach()
 	
 		InstallFiles( FILES ${GMP_DLL_FILES} )

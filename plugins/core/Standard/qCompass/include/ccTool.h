@@ -1,3 +1,5 @@
+#pragma once
+
 //##########################################################################
 //#                                                                        #
 //#                    CLOUDCOMPARE PLUGIN: ccCompass                      #
@@ -15,24 +17,17 @@
 //#                                                                        #
 //##########################################################################
 
-#ifndef CC_TOOL_HEADER
-#define CC_TOOL_HEADER
-
 #include <ccHObject.h>
 #include <ccPointCloud.h>
 #include <ccMainAppInterface.h>
-#include <ccGLWindow.h>
+#include <ccGLWindowInterface.h>
 
-/*
-Template class that defining the basic functionality of qCompass "tools". 
-*/
+//! Template class that defining the basic functionality of qCompass "tools". 
 class ccTool
 {
 public:
 
-	virtual ~ccTool()
-	{
-	}
+	virtual ~ccTool() {}
 	
 	void initializeTool(ccMainAppInterface* app)
 	{
@@ -40,31 +35,33 @@ public:
 		m_window = m_app->getActiveGLWindow();
 	}
 
-	//called when the tool is set to active (for initialization)
+	//! Called when the tool is set to active (for initialization)
 	virtual void toolActivated() { }
 
-	//called when the tool is set to disactive (for cleanup)
+	//! Called when the tool is set to disactive (for cleanup)
 	virtual void toolDisactivated() { }
 
-	//called when a point in a point cloud gets picked while this tool is active
-	virtual void pointPicked(ccHObject* insertPoint, unsigned itemIdx, ccHObject* pickedObject, const CCVector3& P) { }
+	//! Called when a point in a point cloud gets picked while this tool is active
+	/** \return Whether the information was used or not (if not, the other pointPicked method will be called)
+	*/
+	virtual bool pointPicked(ccHObject* insertPoint, unsigned itemIdx, ccHObject* pickedObject, const CCVector3& P) { return false; }
 
-	//called when a point in a point cloud gets picked while this tool is active
+	//! Called when a point in a point cloud gets picked while this tool is active
 	virtual void pointPicked(ccHObject* insertPoint, unsigned itemIdx, ccPointCloud* cloud, const CCVector3& P) { }
 
-	//called when the selection is changed while this tool is active
+	//! Called when the selection is changed while this tool is active
 	virtual void onNewSelection(const ccHObject::Container& selectedEntities) { }
 
-	//called when "Return" or "Space" is pressed, or the "Accept Button" is clicked
+	//! Called when "Return" or "Space" is pressed, or the "Accept Button" is clicked
 	virtual void accept() { }
 
-	//called when the "Escape" is pressed, or the "Cancel" button is clicked
+	//! Called when the "Escape" is pressed, or the "Cancel" button is clicked
 	virtual void cancel() { }
 
-	//if this returns true, the undo button is enabled in the gui
+	//! If this returns true, the undo button is enabled in the gui
 	virtual bool canUndo() { return false; }
 
-	//called when the undo button is clicked
+	//! Called when the undo button is clicked
 	virtual void undo()	{ }
 
 protected:
@@ -75,11 +72,9 @@ protected:
 	{
 	}
 
-	//link to the main plugin interface
+	//! Link to the main plugin interface
 	ccMainAppInterface* m_app;
 
-	//link to the active openGLWindow
-	ccGLWindow*  m_window;
+	//! Link to the active openGLWindow
+	ccGLWindowInterface* m_window;
 };
-
-#endif

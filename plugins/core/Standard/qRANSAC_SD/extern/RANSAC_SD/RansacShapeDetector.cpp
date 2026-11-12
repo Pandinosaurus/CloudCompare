@@ -651,16 +651,11 @@ RansacShapeDetector::Detect(PointCloud &pc, size_t beginIdx, size_t endIdx,
 								pc, 3 * m_options.m_epsilon, m_options.m_normalThresh,
 								m_options.m_bitmapEpsilon);
 							newSize = clone.Size();
-							shape->Release();
-							shape->Release();
+							//shape->Release();
 							if (newScore > oldScore && newSize > m_options.m_minSupport)
 								clone.Clone(&candidates.back());
 						}
-						else
-						{
-							shape->Release();
-							shape->Release();
-						}
+						//clone2.Shape()->Release();
 					}
 					//allowDifferentShapes = false;
 				}
@@ -987,7 +982,7 @@ PrimitiveShape *RansacShapeDetector::Fit(bool allowDifferentShapes,
 			if (suggestions.size() > 0)
 			{
 				bool foundBestShape = false;
-				for (int si = suggestions.size() - 1; si >= 0; si--)
+				for (int si = static_cast<int>(suggestions.size()) - 1; si >= 0; si--)
 				{
 					if (!foundBestShape)
 					{
@@ -1018,7 +1013,7 @@ PrimitiveShape *RansacShapeDetector::Fit(bool allowDifferentShapes,
 							}
 						}
 					}
-					suggestions[si]->Release();
+					//suggestions[si]->Release();
 				}
 			}
 		}

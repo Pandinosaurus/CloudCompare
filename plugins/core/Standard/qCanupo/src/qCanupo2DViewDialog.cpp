@@ -24,12 +24,13 @@
 #include "ccMainAppInterface.h"
 
 //qCC_db
+#include <ccFileUtils.h>
 #include <ccPointCloud.h>
 #include <ccPolyline.h>
 #include <ccSphere.h>
 
 //qCC_gl
-#include <ccGLWidget.h>
+#include <ccGLWindowInterface.h>
 
 //Qt
 #include <QSettings>
@@ -52,8 +53,8 @@ qCanupo2DViewDialog::qCanupo2DViewDialog(	const CorePointDescSet* descriptors1,
 											QString cloud2Name,
 											int class1/*=1*/,
 											int class2/*=2*/,
-											const CorePointDescSet* evaluationDescriptors/*=0*/,
-											ccMainAppInterface* app/*=0*/)
+											const CorePointDescSet* evaluationDescriptors/*=nullptr*/,
+											ccMainAppInterface* app/*=nullptr*/)
 	: QDialog(app ? app->getMainWindow() : nullptr)
 	, Ui::Canupo2DViewDialog()
 	, m_app(app)
@@ -92,19 +93,21 @@ qCanupo2DViewDialog::qCanupo2DViewDialog(	const CorePointDescSet* descriptors1,
 		params.pointsDefaultCol = ccColor::black;
 		params.drawBackgroundGradient = false;
 		params.displayCross = false;
-		m_glWindow->setDisplayParameters(params,true);
-		m_glWindow->setPerspectiveState(false,true);
-        m_glWindow->setInteractionMode(ccGLWindow::MODE_PAN_ONLY | ccGLWindow::INTERACT_SEND_ALL_SIGNALS);
-		m_glWindow->setPickingMode(ccGLWindow::NO_PICKING);
-		m_glWindow->displayOverlayEntities(false);
+		m_glWindow->setDisplayParameters(params, true);
+		m_glWindow->setPerspectiveState(false, true);
+		m_glWindow->setInteractionMode(ccGLWindowInterface::MODE_PAN_ONLY | ccGLWindowInterface::INTERACT_SEND_ALL_SIGNALS);
+		m_glWindow->setPickingMode(ccGLWindowInterface::NO_PICKING);
+		m_glWindow->displayOverlayEntities(false, false);
+		m_glWindow->setSunLight(true);
+		m_glWindow->setCustomLight(false);
 		//add window to the dedicated layout
 		viewFrame->setLayout(new QHBoxLayout());
 		viewFrame->layout()->addWidget(glWidget);
 
-		connect(m_glWindow, &ccGLWindow::leftButtonClicked,		this, &qCanupo2DViewDialog::addOrSelectPoint);
-		connect(m_glWindow, &ccGLWindow::rightButtonClicked,	this, &qCanupo2DViewDialog::removePoint);
-		connect(m_glWindow, &ccGLWindow::mouseMoved,			this, &qCanupo2DViewDialog::moveSelectedPoint);
-		connect(m_glWindow, &ccGLWindow::buttonReleased,		this, &qCanupo2DViewDialog::deselectPoint);
+		connect(m_glWindow->signalEmitter(), &ccGLWindowSignalEmitter::leftButtonClicked,	this, &qCanupo2DViewDialog::addOrSelectPoint);
+		connect(m_glWindow->signalEmitter(), &ccGLWindowSignalEmitter::rightButtonClicked,	this, &qCanupo2DViewDialog::removePoint);
+		connect(m_glWindow->signalEmitter(), &ccGLWindowSignalEmitter::mouseMoved,			this, &qCanupo2DViewDialog::moveSelectedPoint);
+		connect(m_glWindow->signalEmitter(), &ccGLWindowSignalEmitter::buttonReleased,		this, &qCanupo2DViewDialog::deselectPoint);
 	}
 
 	updateScalesList(true);
@@ -115,8 +118,8 @@ qCanupo2DViewDialog::qCanupo2DViewDialog(	const CorePointDescSet* descriptors1,
 	connect(savePushButton,			&QAbstractButton::clicked, this, &qCanupo2DViewDialog::saveClassifier);
 	connect(donePushButton,			&QAbstractButton::clicked, this, &qCanupo2DViewDialog::checkBeforeAccept);
 	
-	connect(pointSizeSpinBox,		static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), this, &qCanupo2DViewDialog::setPointSize);
-	connect(scalesCountSpinBox,		static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), this, &qCanupo2DViewDialog::onScalesCountSpinBoxChanged);
+	connect(pointSizeSpinBox,		qOverload<int>(&QSpinBox::valueChanged), this, &qCanupo2DViewDialog::setPointSize);
+	connect(scalesCountSpinBox,		qOverload<int>(&QSpinBox::valueChanged), this, &qCanupo2DViewDialog::onScalesCountSpinBoxChanged);
 }
 
 qCanupo2DViewDialog::~qCanupo2DViewDialog()
@@ -393,7 +396,7 @@ void qCanupo2DViewDialog::saveClassifier()
 	//select file to save
 	QSettings settings("qCanupo");
 	settings.beginGroup("Classif");
-	QString currentPath = settings.value("MscCurrentPath",QApplication::applicationDirPath()).toString();
+	QString currentPath = settings.value("MscCurrentPath",ccFileUtils::defaultDocPath()).toString();
 
 	QString filename = QFileDialog::getSaveFileName(this,"Save Classifier",currentPath,"*.prm");
 	if (filename.isEmpty())
@@ -476,7 +479,7 @@ CCVector3 qCanupo2DViewDialog::getClickPos(int x, int y) const
 	//DGM: the Z value is meaningless!
 	P3D.z = 0;
 
-	return CCVector3::fromArray(P3D.u);
+	return P3D.toPC();
 }
 
 int qCanupo2DViewDialog::getClosestVertex(int x, int y, CCVector3& P) const
@@ -517,7 +520,7 @@ void qCanupo2DViewDialog::addOrSelectPoint(int x, int y)
 	double maxPickingDist = static_cast<double>(m_pickingRadius) * m_glWindow->computeActualPixelSize();
 
 	//to allow 'mouse move" tracking event
-	m_glWindow->setInteractionMode(ccGLWindow::INTERACT_SEND_ALL_SIGNALS);
+	m_glWindow->setInteractionMode(ccGLWindowInterface::INTERACT_SEND_ALL_SIGNALS);
 
 	//is the closest point close enough?
 	if (closeIndex >= 0)
@@ -591,7 +594,11 @@ void qCanupo2DViewDialog::addOrSelectPoint(int x, int y)
 		return;
 	}
 	unsigned newIndexInCloud = vertices->size();
-	vertices->reserve(newIndexInCloud+1);
+	if (!vertices->reserve(newIndexInCloud + 1))
+	{
+		delete vertices;
+		return;
+	}
 	vertices->addPoint(P);
 
 	//add the corresponding point index at the end of the polyline
@@ -632,10 +639,10 @@ void qCanupo2DViewDialog::removePoint(int x, int y)
 		return;
 
 	//picking radius
-	double maxPickingDist = static_cast<double>(m_pickingRadius) * m_glWindow->computeActualPixelSize();
+	double maxPickingDist = m_pickingRadius * m_glWindow->computeActualPixelSize();
 
 	//B = closest vertex
-	const CCVector3* B = (closeIndex >=0 ? m_poly->getPoint(closeIndex) : nullptr);
+	const CCVector3* B = m_poly->getPoint(closeIndex);
 	if ((P-*B).norm() > maxPickingDist)
 	{
 		//too far
@@ -643,9 +650,11 @@ void qCanupo2DViewDialog::removePoint(int x, int y)
 	}
 
 	//shift all indexes on the polyline only (we don't bother with the vertices cloud!)
-	for (unsigned i=static_cast<unsigned>(closeIndex); i<polySize-1; ++i)
-		m_poly->setPointIndex(i,m_poly->getPointGlobalIndex(i+1));
-	m_poly->resize(polySize-1);
+	for (unsigned i = static_cast<unsigned>(closeIndex); i < polySize - 1; ++i)
+	{
+		m_poly->setPointIndex(i, m_poly->getPointGlobalIndex(i + 1));
+	}
+	m_poly->resize(polySize - 1);
 
 	m_glWindow->redraw();
 }
@@ -674,7 +683,7 @@ void qCanupo2DViewDialog::moveSelectedPoint(int x, int y, Qt::MouseButtons butto
 void qCanupo2DViewDialog::deselectPoint()
 {
 	//to disable 'mouse move' event tracking
-    m_glWindow->setInteractionMode(ccGLWindow::MODE_PAN_ONLY | ccGLWindow::INTERACT_SEND_ALL_SIGNALS);
+    m_glWindow->setInteractionMode(ccGLWindowInterface::MODE_PAN_ONLY | ccGLWindowInterface::INTERACT_SEND_ALL_SIGNALS);
 
 	m_selectedPointIndex = -1;
 }

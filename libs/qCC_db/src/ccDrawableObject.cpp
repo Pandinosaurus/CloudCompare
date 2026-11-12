@@ -1,27 +1,27 @@
-//##########################################################################
-//#                                                                        #
-//#                              CLOUDCOMPARE                              #
-//#                                                                        #
-//#  This program is free software; you can redistribute it and/or modify  #
-//#  it under the terms of the GNU General Public License as published by  #
-//#  the Free Software Foundation; version 2 or later of the License.      #
-//#                                                                        #
-//#  This program is distributed in the hope that it will be useful,       #
-//#  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
-//#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
-//#  GNU General Public License for more details.                          #
-//#                                                                        #
-//#          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
-//#                                                                        #
-//##########################################################################
+// ##########################################################################
+// #                                                                        #
+// #                              CLOUDCOMPARE                              #
+// #                                                                        #
+// #  This program is free software; you can redistribute it and/or modify  #
+// #  it under the terms of the GNU General Public License as published by  #
+// #  the Free Software Foundation; version 2 or later of the License.      #
+// #                                                                        #
+// #  This program is distributed in the hope that it will be useful,       #
+// #  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
+// #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
+// #  GNU General Public License for more details.                          #
+// #                                                                        #
+// #          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
+// #                                                                        #
+// ##########################################################################
 
-#include "ccDrawableObject.h"
+#include "../include/ccDrawableObject.h"
 
-//Local
-#include "ccGenericGLDisplay.h"
+// Local
+#include "../include/ccGenericGLDisplay.h"
 
 ccDrawableObject::ccDrawableObject()
-	: m_currentDisplay(nullptr)
+    : m_currentDisplay(nullptr)
 {
 	setVisible(true);
 	setSelected(false);
@@ -36,18 +36,19 @@ ccDrawableObject::ccDrawableObject()
 }
 
 ccDrawableObject::ccDrawableObject(const ccDrawableObject& object)
-	: m_visible(object.m_visible)
-	, m_selected(object.m_selected)
-	, m_lockedVisibility(object.m_lockedVisibility)
-	, m_colorsDisplayed(object.m_colorsDisplayed)
-	, m_normalsDisplayed(object.m_normalsDisplayed)
-	, m_sfDisplayed(object.m_sfDisplayed)
-	, m_tempColor(object.m_tempColor)
-	, m_colorIsOverriden(object.m_colorIsOverriden)
-	, m_glTrans(object.m_glTrans)
-	, m_glTransEnabled(object.m_glTransEnabled)
-	, m_showNameIn3D(object.m_showNameIn3D)
-	, m_currentDisplay(object.m_currentDisplay)
+    : m_visible(object.m_visible)
+    , m_selected(object.m_selected)
+    , m_lockedVisibility(object.m_lockedVisibility)
+    , m_colorsDisplayed(object.m_colorsDisplayed)
+    , m_normalsDisplayed(object.m_normalsDisplayed)
+    , m_sfDisplayed(object.m_sfDisplayed)
+    , m_tempColor(object.m_tempColor)
+    , m_colorIsOverridden(object.m_colorIsOverridden)
+    , m_glTrans(object.m_glTrans)
+    , m_glTransEnabled(object.m_glTransEnabled)
+    , m_showNameIn3D(object.m_showNameIn3D)
+    , m_nameIn3DPosIsValid(object.m_nameIn3DPosIsValid)
+    , m_currentDisplay(object.m_currentDisplay)
 {
 }
 
@@ -57,7 +58,7 @@ void ccDrawableObject::redrawDisplay()
 		m_currentDisplay->redraw();
 }
 
-void ccDrawableObject::refreshDisplay(bool only2D/*=false*/)
+void ccDrawableObject::refreshDisplay(bool only2D /*=false*/)
 {
 	if (m_currentDisplay)
 		m_currentDisplay->refresh(only2D);
@@ -74,6 +75,7 @@ void ccDrawableObject::setDisplay(ccGenericGLDisplay* win)
 	if (win && m_currentDisplay != win)
 	{
 		win->invalidateViewport();
+		win->aboutToBeRemoved(this);
 		win->deprecate3DLayer();
 	}
 
@@ -90,6 +92,7 @@ void ccDrawableObject::removeFromDisplay(const ccGenericGLDisplay* win)
 	{
 		if (m_currentDisplay)
 		{
+			m_currentDisplay->aboutToBeRemoved(this);
 			m_currentDisplay->deprecate3DLayer();
 		}
 		setDisplay(nullptr);
@@ -129,7 +132,7 @@ void ccDrawableObject::resetGLTransformation()
 	m_glTrans.toIdentity();
 }
 
-void ccDrawableObject::setTempColor(const ccColor::Rgba& col, bool autoActivate/*=true*/)
+void ccDrawableObject::setTempColor(const ccColor::Rgba& col, bool autoActivate /*=true*/)
 {
 	m_tempColor = col;
 
@@ -137,7 +140,7 @@ void ccDrawableObject::setTempColor(const ccColor::Rgba& col, bool autoActivate/
 		enableTempColor(true);
 }
 
-void ccDrawableObject::setTempColor(const ccColor::Rgb& col, bool autoActivate/*=true*/)
+void ccDrawableObject::setTempColor(const ccColor::Rgb& col, bool autoActivate /*=true*/)
 {
 	m_tempColor = ccColor::Rgba(col, ccColor::MAX);
 
@@ -147,18 +150,18 @@ void ccDrawableObject::setTempColor(const ccColor::Rgb& col, bool autoActivate/*
 
 void ccDrawableObject::getDrawingParameters(glDrawParams& params) const
 {
-	//color override
-	if (isColorOverriden())
+	// color override
+	if (isColorOverridden())
 	{
 		params.showColors = true;
-		params.showNorms = hasNormals() && normalsShown()/*false*/;
-		params.showSF = false;
+		params.showNorms  = hasNormals() && normalsShown() /*false*/;
+		params.showSF     = false;
 	}
 	else
 	{
 		params.showNorms = hasNormals() && normalsShown();
-		params.showSF = hasDisplayedScalarField() && sfShown();
-		//colors are not displayed if scalar field is displayed
+		params.showSF    = hasDisplayedScalarField() && sfShown();
+		// colors are not displayed if scalar field is displayed
 		params.showColors = !params.showSF && hasColors() && colorsShown();
 	}
 }
@@ -171,7 +174,7 @@ bool ccDrawableObject::addClipPlanes(const ccClipPlane& plane)
 	}
 	catch (const std::bad_alloc&)
 	{
-		//not enough memory
+		// not enough memory
 		return false;
 	}
 
@@ -184,8 +187,8 @@ void ccDrawableObject::toggleClipPlanes(CC_DRAW_CONTEXT& context, bool enable)
 	{
 		return;
 	}
-	
-	//get the set of OpenGL functions (version 2.1)
+
+	// get the set of OpenGL functions (version 2.1)
 	QOpenGLFunctions_2_1* glFunc = context.glFunctions<QOpenGLFunctions_2_1>();
 	assert(glFunc != nullptr);
 
@@ -204,7 +207,7 @@ void ccDrawableObject::toggleClipPlanes(CC_DRAW_CONTEXT& context, bool enable)
 		}
 		planeCount = maxPlaneCount;
 	}
-	for (GLint i=0; i<planeCount; ++i)
+	for (GLint i = 0; i < planeCount; ++i)
 	{
 		GLenum planeIndex = GL_CLIP_PLANE0 + i;
 		if (enable)
@@ -217,4 +220,61 @@ void ccDrawableObject::toggleClipPlanes(CC_DRAW_CONTEXT& context, bool enable)
 			glFunc->glDisable(planeIndex);
 		}
 	}
+}
+
+ccDrawableObject::DisplayState::DisplayState(const ccDrawableObject& dobj)
+    : visible(dobj.m_visible)
+    , colorsDisplayed(dobj.m_colorsDisplayed)
+    , normalsDisplayed(dobj.m_normalsDisplayed)
+    , sfDisplayed(dobj.m_sfDisplayed)
+    , colorIsOverridden(dobj.m_colorIsOverridden)
+    , showNameIn3D(dobj.m_showNameIn3D)
+    , display(dobj.m_currentDisplay)
+{
+}
+
+bool ccDrawableObject::pushDisplayState()
+{
+	try
+	{
+		m_displayStateStack.emplace_back(new DisplayState(*this));
+	}
+	catch (const std::bad_alloc&)
+	{
+		ccLog::Warning("Not enough memory to push the current display state");
+		return false;
+	}
+
+	return true;
+}
+
+void ccDrawableObject::popDisplayState(bool apply /*=true*/)
+{
+	if (!m_displayStateStack.empty())
+	{
+		const DisplayState::Shared state = m_displayStateStack.back();
+		if (state && apply)
+		{
+			applyDisplayState(*state);
+		}
+		m_displayStateStack.pop_back();
+	}
+}
+
+void ccDrawableObject::applyDisplayState(const DisplayState& state)
+{
+	if (state.visible != m_visible)
+		setVisible(state.visible);
+	if (state.colorsDisplayed != m_colorsDisplayed)
+		showColors(state.colorsDisplayed);
+	if (state.normalsDisplayed != m_normalsDisplayed)
+		showNormals(state.normalsDisplayed);
+	if (state.sfDisplayed != m_sfDisplayed)
+		showSF(state.sfDisplayed);
+	if (state.colorIsOverridden != m_colorIsOverridden)
+		enableTempColor(state.colorIsOverridden);
+	if (state.showNameIn3D != m_showNameIn3D)
+		showNameIn3D(state.showNameIn3D);
+	if (state.display != m_currentDisplay)
+		setDisplay(state.display);
 }

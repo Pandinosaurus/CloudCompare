@@ -26,6 +26,8 @@
 
 //qCC_plugins
 #include <ccMainAppInterface.h>
+#include <ccBackgroundTask.h>
+#include <ccQtHelpers.h>
 
 //qCC_db
 #include <ccGenericPointCloud.h>
@@ -55,7 +57,7 @@ static const char DENSITY_CLOUD1_SF_NAME[]		= "Npoints_cloud1";
 static const char DENSITY_CLOUD2_SF_NAME[]		= "Npoints_cloud2";
 static const char NORMAL_SCALE_SF_NAME[]		= "normal scale";
 
-static void RemoveScalarField(ccPointCloud* cloud, const char sfName[])
+static void RemoveScalarField(ccPointCloud* cloud, const std::string& sfName)
 {
 	int sfIdx = cloud ? cloud->getScalarFieldIndexByName(sfName) : -1;
 	if (sfIdx >= 0)
@@ -72,7 +74,7 @@ struct PrecisionMaps
 {
 	PrecisionMaps() : sX(nullptr), sY(nullptr), sZ(nullptr), scale(1.0) {}
 	bool valid() const { return (sX != nullptr && sY != nullptr && sZ != nullptr); }
-	CCCoreLib::ScalarField *sX, *sY, *sZ;
+	CCCoreLib::ScalarField::Shared sX, sY, sZ;
 	double scale;
 };
 
@@ -142,7 +144,7 @@ struct M3C2Params
 	//input data
 	ccPointCloud* outputCloud = nullptr;
 	ccPointCloud* corePoints = nullptr;
-	NormsIndexesTableType* coreNormals = nullptr;
+	NormsIndexesTableType::Shared coreNormals;
 
 	//main options
 	PointCoordinateType projectionRadius = 0;
@@ -167,13 +169,13 @@ struct M3C2Params
 	unsigned char level2 = 0;
 
 	//scalar fields
-	ccScalarField* m3c2DistSF = nullptr;		//M3C2 distance
-	ccScalarField* distUncertaintySF = nullptr;	//distance uncertainty
-	ccScalarField* sigChangeSF = nullptr;		//significant change
-	ccScalarField* stdDevCloud1SF = nullptr;	//standard deviation information for cloud #1
-	ccScalarField* stdDevCloud2SF = nullptr;	//standard deviation information for cloud #2
-	ccScalarField* densityCloud1SF = nullptr;	//export point density at projection scale for cloud #1
-	ccScalarField* densityCloud2SF = nullptr;	//export point density at projection scale for cloud #2
+	ccScalarField::Shared m3c2DistSF;        // M3C2 distance
+	ccScalarField::Shared distUncertaintySF; // distance uncertainty
+	ccScalarField::Shared sigChangeSF;       // significant change
+	ccScalarField::Shared stdDevCloud1SF;    // standard deviation information for cloud #1
+	ccScalarField::Shared stdDevCloud2SF;    // standard deviation information for cloud #2
+	ccScalarField::Shared densityCloud1SF;   // export point density at projection scale for cloud #1
+	ccScalarField::Shared densityCloud2SF;   // export point density at projection scale for cloud #2
 
 	//precision maps
 	PrecisionMaps cloud1PM, cloud2PM;
@@ -182,6 +184,7 @@ struct M3C2Params
 	//progress notification
 	CCCoreLib::NormalizedProgress* nProgress = nullptr;
 	bool processCanceled = false;
+	bool processFailed = false;
 };
 static M3C2Params s_M3C2Params;
 
@@ -207,6 +210,7 @@ void ComputeM3C2DistForPoint(unsigned index)
 	CCVector3 outputP = P;
 
 	//compute M3C2 distance
+	try
 	{
 		double mean1 = 0;
 		double stdDev1 = 0;
@@ -418,6 +422,12 @@ void ComputeM3C2DistForPoint(unsigned index)
 			}
 		}
 	}
+	catch (std::bad_alloc&)
+	{
+		//Not enough memory
+		s_M3C2Params.processFailed = true;
+		return;
+	}
 
 	//output point
 	if (s_M3C2Params.outputCloud != s_M3C2Params.corePoints)
@@ -455,8 +465,39 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 	double normalScale = dlg.normalScaleDoubleSpinBox->value();
 	double projectionScale = dlg.cylDiameterDoubleSpinBox->value();
 	qM3C2Normals::ComputationMode normMode = dlg.getNormalsComputationMode();
+	// 		DEFAULT_MODE			= 0, //compute normals on core points
+	// USE_CLOUD1_NORMALS		= 1,
+	// 	MULTI_SCALE_MODE		= 2,
+	// 	VERT_MODE				= 3,
+	// 	HORIZ_MODE				= 4,
+	// 	USE_CORE_POINTS_NORMALS	= 5,
+	QString msg("[qM3C2Process::Compute] normal mode: ");
+	switch (normMode) {
+	case qM3C2Normals::DEFAULT_MODE:
+		msg += "DEFAULT_MODE";
+		break;
+	case qM3C2Normals::USE_CLOUD1_NORMALS:
+		msg += "USE_CLOUD1_NORMALS";
+		break;
+	case qM3C2Normals::MULTI_SCALE_MODE:
+		msg += "MULTI_SCALE_MODE";
+		break;
+	case qM3C2Normals::VERT_MODE:
+		msg += "VERT_MODE";
+		break;
+	case qM3C2Normals::HORIZ_MODE:
+		msg += "HORIZ_MODE";
+		break;
+	case qM3C2Normals::USE_CORE_POINTS_NORMALS:
+		msg += "USE_CORE_POINTS_NORMALS";
+		break;
+	default:
+		ccLog::Error("[qM3C2Process::Compute] Unexpected normal mode " + QString::number(normMode));
+		break;
+	}
+	ccLog::Print(msg);
 	double samplingDist = dlg.cpSubsamplingDoubleSpinBox->value();
-	ccScalarField* normalScaleSF = nullptr; //normal scale (multi-scale mode only)
+	ccScalarField::Shared normalScaleSF; //normal scale (multi-scale mode only)
 
 	//other parameters are stored in 's_M3C2Params' for parallel call
 	s_M3C2Params = M3C2Params();
@@ -505,6 +546,9 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 
 	//max thread count
 	int maxThreadCount = dlg.getMaxThreadCount();
+
+	if (app)
+		app->dispToConsole(QString("[M3C2] Will use %1 threads").arg(maxThreadCount == 0 ? "the max number of" : QString::number(maxThreadCount)), ccMainAppInterface::STD_CONSOLE_MESSAGE);
 
 	//progress dialog
 	ccProgressDialog pDlg(parentWidget);
@@ -625,8 +669,7 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 		case qM3C2Normals::DEFAULT_MODE:
 		case qM3C2Normals::MULTI_SCALE_MODE:
 		{
-			s_M3C2Params.coreNormals = new NormsIndexesTableType();
-			s_M3C2Params.coreNormals->link(); //will be released anyway at the end of the process
+			s_M3C2Params.coreNormals.reset(new NormsIndexesTableType);
 
 			std::vector<PointCoordinateType> radii;
 			if (normMode == qM3C2Normals::MULTI_SCALE_MODE)
@@ -642,14 +685,14 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 					radii.push_back(static_cast<PointCoordinateType>(scale / 2));
 				}
 
-				outputName += QString(" scale=[%1:%2:%3]").arg(startScale).arg(step).arg(stopScale);
+				outputName += QString(" [Multi-scale norms:{%1:%2:%3}]").arg(startScale).arg(step).arg(stopScale);
 
-				normalScaleSF = new ccScalarField(NORMAL_SCALE_SF_NAME);
-				normalScaleSF->link(); //will be released anyway at the end of the process
+				normalScaleSF.reset(new ccScalarField(NORMAL_SCALE_SF_NAME));
 			}
 			else
 			{
-				outputName += QString(" scale=%1").arg(normalScale);
+				assert(dlg.normalScaleDoubleSpinBox->isEnabled());
+				outputName += QString(" [Norm. scale=%1]").arg(normalScale);
 				//otherwise, we use a unique scale by default
 				radii.push_back(static_cast<PointCoordinateType>(normalScale / 2)); //we want the radius in fact ;)
 			}
@@ -660,12 +703,12 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 
 			//dedicated core points method
 			normalsAreOk = qM3C2Normals::ComputeCorePointsNormals(s_M3C2Params.corePoints,
-				s_M3C2Params.coreNormals,
+				s_M3C2Params.coreNormals.get(),
 				baseCloud,
 				radii,
 				invalidNormals,
 				maxThreadCount,
-				normalScaleSF,
+				normalScaleSF.get(),
 				&pDlg,
 				baseOctree);
 
@@ -689,10 +732,11 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 				if (usePreferredOrientation)
 				{
 					int preferredOrientation = dlg.normOriPreferredComboBox->currentIndex();
-					assert(preferredOrientation >= ccNormalVectors::MINUS_X && preferredOrientation <= ccNormalVectors::PLUS_ZERO);
-					if (!ccNormalVectors::UpdateNormalOrientations(s_M3C2Params.corePoints,
-						*s_M3C2Params.coreNormals,
-						static_cast<ccNormalVectors::Orientation>(preferredOrientation)))
+					assert(preferredOrientation >= ccNormalVectors::PLUS_X && preferredOrientation <= ccNormalVectors::MINUS_SENSOR_ORIGIN);
+					if (!ccNormalVectors::UpdateNormalOrientations(	s_M3C2Params.corePoints,
+																	*s_M3C2Params.coreNormals,
+																	static_cast<ccNormalVectors::Orientation>(preferredOrientation))
+						)
 					{
 						errorMessage = "[M3C2] Failed to re-orient the normals (invalid parameter?)";
 						error = true;
@@ -703,11 +747,12 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 					ccPointCloud* orientationCloud = dlg.getNormalsOrientationCloud();
 					assert(orientationCloud);
 
-					if (!qM3C2Normals::UpdateNormalOrientationsWithCloud(s_M3C2Params.corePoints,
-						*s_M3C2Params.coreNormals,
-						orientationCloud,
-						maxThreadCount,
-						&pDlg))
+					if (!qM3C2Normals::UpdateNormalOrientationsWithCloud(	s_M3C2Params.corePoints,
+																			*s_M3C2Params.coreNormals,
+																			orientationCloud,
+																			maxThreadCount,
+																			&pDlg)
+						)
 					{
 						errorMessage = "[M3C2] Failed to re-orient the normals with input point cloud!";
 						error = true;
@@ -725,12 +770,16 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 
 		case qM3C2Normals::USE_CLOUD1_NORMALS:
 		{
-			outputName += QString(" scale=%1").arg(normalScale);
 			ccPointCloud* sourceCloud = (corePointsHaveBeenSubsampled ? s_M3C2Params.corePoints : cloud1);
 			s_M3C2Params.coreNormals = sourceCloud->normals();
-			normalsAreOk = (s_M3C2Params.coreNormals && s_M3C2Params.coreNormals->currentSize() == sourceCloud->size());
-			s_M3C2Params.coreNormals->link(); //will be released anyway at the end of the process
-
+			if (s_M3C2Params.coreNormals)
+			{
+				normalsAreOk = (s_M3C2Params.coreNormals->currentSize() == sourceCloud->size());
+			}
+			else
+			{
+				normalsAreOk = false;
+			}
 			//DGM TODO: should we export the normals to the output cloud?
 		}
 		break;
@@ -741,14 +790,12 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 			if (normalsAreOk)
 			{
 				s_M3C2Params.coreNormals = s_M3C2Params.corePoints->normals();
-				s_M3C2Params.coreNormals->link(); //will be released anyway at the end of the process
 			}
 		}
 		break;
 
 		case qM3C2Normals::VERT_MODE:
 		{
-			outputName += QString(" scale=%1").arg(normalScale);
 			outputName += QString(" [VERTICAL]");
 
 			//nothing to do
@@ -763,6 +810,8 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 			error = true;
 		}
 	}
+
+	outputName += QString(" Proj. scale=%1").arg(projectionScale);
 
 	if (!error && s_M3C2Params.coreNormals && corePointsHaveBeenSubsampled)
 	{
@@ -801,8 +850,7 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 		s_M3C2Params.nProgress = &nProgress;
 
 		//allocate distances SF
-		s_M3C2Params.m3c2DistSF = new ccScalarField(M3C2_DIST_SF_NAME);
-		s_M3C2Params.m3c2DistSF->link();
+		s_M3C2Params.m3c2DistSF.reset(new ccScalarField(M3C2_DIST_SF_NAME));
 		if (!s_M3C2Params.m3c2DistSF->resizeSafe(corePointCount, true, CCCoreLib::NAN_VALUE))
 		{
 			errorMessage = "Failed to allocate memory for distance values!";
@@ -810,8 +858,7 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 			break;
 		}
 		//allocate dist. uncertainty SF
-		s_M3C2Params.distUncertaintySF = new ccScalarField(DIST_UNCERTAINTY_SF_NAME);
-		s_M3C2Params.distUncertaintySF->link();
+		s_M3C2Params.distUncertaintySF.reset(new ccScalarField(DIST_UNCERTAINTY_SF_NAME));
 		if (!s_M3C2Params.distUncertaintySF->resizeSafe(corePointCount, true, CCCoreLib::NAN_VALUE))
 		{
 			errorMessage = "Failed to allocate memory for dist. uncertainty values!";
@@ -819,14 +866,12 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 			break;
 		}
 		//allocate change significance SF
-		s_M3C2Params.sigChangeSF = new ccScalarField(SIG_CHANGE_SF_NAME);
-		s_M3C2Params.sigChangeSF->link();
+		s_M3C2Params.sigChangeSF.reset(new ccScalarField(SIG_CHANGE_SF_NAME));
 		if (!s_M3C2Params.sigChangeSF->resizeSafe(corePointCount, true, SCALAR_ZERO))
 		{
 			if (app)
 				app->dispToConsole("Failed to allocate memory for change significance values!", ccMainAppInterface::WRN_CONSOLE_MESSAGE);
-			s_M3C2Params.sigChangeSF->release();
-			s_M3C2Params.sigChangeSF = nullptr;
+			s_M3C2Params.sigChangeSF.reset();
 			//no need to stop just for this SF!
 			//error = true;
 			//break;
@@ -845,54 +890,46 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 			}
 			//allocate cloud #1 std. dev. SF
 			QString stdDevSFName1 = QString(STD_DEV_CLOUD1_SF_NAME).arg(prefix);
-			s_M3C2Params.stdDevCloud1SF = new ccScalarField(qPrintable(stdDevSFName1));
-			s_M3C2Params.stdDevCloud1SF->link();
+			s_M3C2Params.stdDevCloud1SF.reset(new ccScalarField(stdDevSFName1.toStdString()));
 			if (!s_M3C2Params.stdDevCloud1SF->resizeSafe(corePointCount, true, CCCoreLib::NAN_VALUE))
 			{
 				if (app)
 					app->dispToConsole("Failed to allocate memory for cloud #1 std. dev. values!", ccMainAppInterface::WRN_CONSOLE_MESSAGE);
-				s_M3C2Params.stdDevCloud1SF->release();
-				s_M3C2Params.stdDevCloud1SF = nullptr;
+				s_M3C2Params.stdDevCloud1SF.reset();
 			}
 			//allocate cloud #2 std. dev. SF
 			QString stdDevSFName2 = QString(STD_DEV_CLOUD2_SF_NAME).arg(prefix);
-			s_M3C2Params.stdDevCloud2SF = new ccScalarField(qPrintable(stdDevSFName2));
-			s_M3C2Params.stdDevCloud2SF->link();
+			s_M3C2Params.stdDevCloud2SF.reset(new ccScalarField(stdDevSFName2.toStdString()));
 			if (!s_M3C2Params.stdDevCloud2SF->resizeSafe(corePointCount, true, CCCoreLib::NAN_VALUE))
 			{
 				if (app)
 					app->dispToConsole("Failed to allocate memory for cloud #2 std. dev. values!", ccMainAppInterface::WRN_CONSOLE_MESSAGE);
-				s_M3C2Params.stdDevCloud2SF->release();
-				s_M3C2Params.stdDevCloud2SF = nullptr;
+				s_M3C2Params.stdDevCloud2SF.reset();
 			}
 		}
 		if (dlg.exportDensityAtProjScaleCheckBox->isChecked())
 		{
 			//allocate cloud #1 density SF
-			s_M3C2Params.densityCloud1SF = new ccScalarField(DENSITY_CLOUD1_SF_NAME);
-			s_M3C2Params.densityCloud1SF->link();
+			s_M3C2Params.densityCloud1SF.reset(new ccScalarField(DENSITY_CLOUD1_SF_NAME));
 			if (!s_M3C2Params.densityCloud1SF->resizeSafe(corePointCount, true, CCCoreLib::NAN_VALUE))
 			{
 				if (app)
 					app->dispToConsole("Failed to allocate memory for cloud #1 density values!", ccMainAppInterface::WRN_CONSOLE_MESSAGE);
-				s_M3C2Params.densityCloud1SF->release();
-				s_M3C2Params.densityCloud1SF = nullptr;
+				s_M3C2Params.densityCloud1SF.reset();
 			}
 			//allocate cloud #2 density SF
-			s_M3C2Params.densityCloud2SF = new ccScalarField(DENSITY_CLOUD2_SF_NAME);
-			s_M3C2Params.densityCloud2SF->link();
+			s_M3C2Params.densityCloud2SF.reset(new ccScalarField(DENSITY_CLOUD2_SF_NAME));
 			if (!s_M3C2Params.densityCloud2SF->resizeSafe(corePointCount, true, CCCoreLib::NAN_VALUE))
 			{
 				if (app)
 					app->dispToConsole("Failed to allocate memory for cloud #2 density values!", ccMainAppInterface::WRN_CONSOLE_MESSAGE);
-				s_M3C2Params.densityCloud2SF->release();
-				s_M3C2Params.densityCloud2SF = nullptr;
+				s_M3C2Params.densityCloud2SF.reset();
 			}
 		}
 
 		//get best levels for neighbourhood extraction on both octrees
 		assert(s_M3C2Params.cloud1Octree && s_M3C2Params.cloud2Octree);
-		PointCoordinateType equivalentRadius = pow(s_M3C2Params.projectionDepth * s_M3C2Params.projectionDepth * s_M3C2Params.projectionRadius, CCCoreLib::PC_ONE / 3);
+		PointCoordinateType equivalentRadius = static_cast<PointCoordinateType>(pow((static_cast<double>(s_M3C2Params.projectionDepth) * s_M3C2Params.projectionDepth) * s_M3C2Params.projectionRadius, 1.0 / 3.0));
 		s_M3C2Params.level1 = s_M3C2Params.cloud1Octree->findBestLevelForAGivenNeighbourhoodSizeExtraction(equivalentRadius);
 		if (app)
 			app->dispToConsole(QString("[M3C2] Working subdivision level (cloud #1): %1").arg(s_M3C2Params.level1), ccMainAppInterface::STD_CONSOLE_MESSAGE);
@@ -941,11 +978,12 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 
 				if (maxThreadCount == 0)
 				{
-					maxThreadCount = QThread::idealThreadCount();
+					maxThreadCount = ccQtHelpers::GetMaxThreadCount();
 				}
 				assert(maxThreadCount > 0 && maxThreadCount <= QThread::idealThreadCount());
 				QThreadPool::globalInstance()->setMaxThreadCount(maxThreadCount);
-				QtConcurrent::blockingMap(pointIndexes, ComputeM3C2DistForPoint);
+				auto future = QtConcurrent::map(pointIndexes, ComputeM3C2DistForPoint);
+				ccBackgroundTask::Wait(future);
 			}
 			else
 			{
@@ -960,6 +998,11 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 		if (s_M3C2Params.processCanceled)
 		{
 			errorMessage = "Process canceled by user!";
+			error = true;
+		}
+		else if (s_M3C2Params.processFailed)
+		{
+			errorMessage = "Process failed (not enough memory?)";
 			error = true;
 		}
 		else
@@ -1059,12 +1102,13 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 		s_M3C2Params.outputCloud->showSF(true);
 		s_M3C2Params.outputCloud->showNormals(true);
 		s_M3C2Params.outputCloud->setVisible(true);
+		s_M3C2Params.outputCloud->prepareDisplayForRefresh();
 
 		if (s_M3C2Params.outputCloud != cloud1 && s_M3C2Params.outputCloud != cloud2)
 		{
 			s_M3C2Params.outputCloud->setName(outputName);
 			s_M3C2Params.outputCloud->setDisplay(s_M3C2Params.corePoints->getDisplay());
-			s_M3C2Params.outputCloud->importParametersFrom(s_M3C2Params.corePoints);
+			s_M3C2Params.outputCloud->importParametersFrom(*s_M3C2Params.corePoints);
 			if (app)
 			{
 				app->addToDB(s_M3C2Params.outputCloud);
@@ -1086,27 +1130,10 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 	}
 
 	if (app)
+	{
+		app->updatePropertiesView();
 		app->refreshAll();
-
-	//release structures
-	if (normalScaleSF)
-		normalScaleSF->release();
-	if (s_M3C2Params.coreNormals)
-		s_M3C2Params.coreNormals->release();
-	if (s_M3C2Params.m3c2DistSF)
-		s_M3C2Params.m3c2DistSF->release();
-	if (s_M3C2Params.sigChangeSF)
-		s_M3C2Params.sigChangeSF->release();
-	if (s_M3C2Params.distUncertaintySF)
-		s_M3C2Params.distUncertaintySF->release();
-	if (s_M3C2Params.stdDevCloud1SF)
-		s_M3C2Params.stdDevCloud1SF->release();
-	if (s_M3C2Params.stdDevCloud2SF)
-		s_M3C2Params.stdDevCloud2SF->release();
-	if (s_M3C2Params.densityCloud1SF)
-		s_M3C2Params.densityCloud1SF->release();
-	if (s_M3C2Params.densityCloud2SF)
-		s_M3C2Params.densityCloud2SF->release();
+	}
 
 	return !error;
 }

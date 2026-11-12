@@ -1,7 +1,11 @@
 # Require C++14
-set( CMAKE_CXX_STANDARD 14 )
+set( CMAKE_CXX_STANDARD 17 )
 set( CMAKE_CXX_STANDARD_REQUIRED ON )
 set( CMAKE_CXX_EXTENSIONS NO )
+
+
+add_compile_definitions(QT_WARN_DEPRECATED_UP_TO=0x060800)
+add_compile_definitions(QT_DISABLE_DEPRECATED_UP_TO=0x060400)
 
 # ccache
 # https://crascit.com/2016/04/09/using-ccache-with-cmake/
@@ -13,7 +17,7 @@ if ( CCACHE_PROGRAM )
 endif()
 
 if ( UNIX )
-	set( CMAKE_POSITION_INDEPENDENT_CODE ON )	
+    set( CMAKE_POSITION_INDEPENDENT_CODE ON )
 elseif( MSVC )
     add_definitions(-DNOMINMAX -D_CRT_SECURE_NO_WARNINGS -D__STDC_LIMIT_MACROS)
 
@@ -23,11 +27,11 @@ elseif( MSVC )
     endif()
 
     #disable SECURE_SCL (see http://channel9.msdn.com/shows/Going+Deep/STL-Iterator-Debugging-and-Secure-SCL/)
-	set( CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /D _SECURE_SCL=0" ) # disable checked iterators
+    set( CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /D _SECURE_SCL=0" ) # disable checked iterators
 
     #use VLD for mem leak checking
     option( OPTION_USE_VISUAL_LEAK_DETECTOR "Check to activate compilation (in debug) with Visual Leak Detector" OFF )
     if( ${OPTION_USE_VISUAL_LEAK_DETECTOR} )
-		set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /D USE_VLD" )
+        set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /D USE_VLD" )
     endif()
 endif()

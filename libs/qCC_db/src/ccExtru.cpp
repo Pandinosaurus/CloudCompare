@@ -1,54 +1,51 @@
-//##########################################################################
-//#                                                                        #
-//#                              CLOUDCOMPARE                              #
-//#                                                                        #
-//#  This program is free software; you can redistribute it and/or modify  #
-//#  it under the terms of the GNU General Public License as published by  #
-//#  the Free Software Foundation; version 2 or later of the License.      #
-//#                                                                        #
-//#  This program is distributed in the hope that it will be useful,       #
-//#  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
-//#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
-//#  GNU General Public License for more details.                          #
-//#                                                                        #
-//#          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
-//#                                                                        #
-//##########################################################################
+// ##########################################################################
+// #                                                                        #
+// #                              CLOUDCOMPARE                              #
+// #                                                                        #
+// #  This program is free software; you can redistribute it and/or modify  #
+// #  it under the terms of the GNU General Public License as published by  #
+// #  the Free Software Foundation; version 2 or later of the License.      #
+// #                                                                        #
+// #  This program is distributed in the hope that it will be useful,       #
+// #  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
+// #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
+// #  GNU General Public License for more details.                          #
+// #                                                                        #
+// #          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
+// #                                                                        #
+// ##########################################################################
 
-#include "ccExtru.h"
+#include "../include/ccExtru.h"
 
-//qCC_db
-#include "ccPointCloud.h"
-#include "ccNormalVectors.h"
+// Local
+#include "../include/ccNormalVectors.h"
+#include "../include/ccPointCloud.h"
 
-//CCCoreLib
+// CCCoreLib
 #include <Delaunay2dMesh.h>
 
-//system
-#include <string.h>
-
 ccExtru::ccExtru(const std::vector<CCVector2>& profile,
-				 PointCoordinateType height,
-				 const ccGLMatrix* transMat /*= 0*/,
-				 QString name/*="Extrusion"*/)
-	: ccGenericPrimitive(name,transMat)
-	, m_height(height)
-	, m_profile(profile)
+                 PointCoordinateType           height,
+                 const ccGLMatrix*             transMat /*= 0*/,
+                 QString                       name /*="Extrusion"*/)
+    : ccGenericPrimitive(name, transMat)
+    , m_height(height)
+    , m_profile(profile)
 {
 	assert(m_profile.size() > 2);
 
 	updateRepresentation();
 }
 
-ccExtru::ccExtru(QString name/*="Plane"*/)
-	: ccGenericPrimitive(name)
-	, m_height(0)
+ccExtru::ccExtru(QString name /*="Plane"*/)
+    : ccGenericPrimitive(name)
+    , m_height(0)
 {
 }
 
 ccGenericPrimitive* ccExtru::clone() const
 {
-	return finishCloneJob(new ccExtru(m_profile,m_height,&m_transformation,getName()));
+	return finishCloneJob(new ccExtru(m_profile, m_height, &m_transformation, getName()));
 }
 
 bool ccExtru::buildUp()
@@ -59,30 +56,30 @@ bool ccExtru::buildUp()
 
 	CCCoreLib::Delaunay2dMesh mesh;
 
-	//DGM: we check that last vertex is different from the first one!
+	// DGM: we check that last vertex is different from the first one!
 	//(yes it happens ;)
-	if (m_profile.back().x == m_profile.front().x &&  m_profile.back().y == m_profile.front().y)
+	if (m_profile.back().x == m_profile.front().x && m_profile.back().y == m_profile.front().y)
 		--count;
 
 	std::string errorStr;
 	if (!mesh.buildMesh(m_profile, count, errorStr))
 	{
-		ccLog::Warning( QStringLiteral("[ccPlane::buildUp] Profile triangulation failed (CClib said: '%1'")
-					    .arg( QString::fromStdString( errorStr) ) );
+		ccLog::Warning(QStringLiteral("[ccPlane::buildUp] Profile triangulation failed (CClib said: '%1'")
+		                   .arg(QString::fromStdString(errorStr)));
 		return false;
 	}
 
 	unsigned numberOfTriangles = mesh.size();
-	int* triIndexes = mesh.getTriangleVertIndexesArray();
+	int*     triIndexes        = mesh.getTriangleVertIndexesArray();
 
 	if (numberOfTriangles == 0)
 		return false;
 
-	//vertices
+	// vertices
 	unsigned vertCount = 2 * count;
-	//faces
+	// faces
 	unsigned faceCount = 2 * numberOfTriangles + 2 * count;
-	//faces normals
+	// faces normals
 	unsigned faceNormCount = 2 + count;
 
 	if (!init(vertCount, false, faceCount, faceNormCount))
@@ -95,11 +92,11 @@ bool ccExtru::buildUp()
 	assert(verts);
 	assert(m_triNormals);
 
-	//bottom & top faces normals
+	// bottom & top faces normals
 	m_triNormals->addElement(ccNormalVectors::GetNormIndex(CCVector3(0.0, 0.0, -1.0).u));
-	m_triNormals->addElement(ccNormalVectors::GetNormIndex(CCVector3(0.0, 0.0,  1.0).u));
+	m_triNormals->addElement(ccNormalVectors::GetNormIndex(CCVector3(0.0, 0.0, 1.0).u));
 
-	//add profile vertices & normals
+	// add profile vertices & normals
 	for (unsigned i = 0; i < count; ++i)
 	{
 		const CCVector2& P = m_profile[i];
@@ -107,14 +104,14 @@ bool ccExtru::buildUp()
 		verts->addPoint(CCVector3(P.x, P.y, m_height));
 
 		const CCVector2& PNext = m_profile[(i + 1) % count];
-		CCVector2 N(-(PNext.y - P.y), PNext.x - P.x);
+		CCVector2        N(-(PNext.y - P.y), PNext.x - P.x);
 		N.normalize();
 		m_triNormals->addElement(ccNormalVectors::GetNormIndex(CCVector3(N.x, N.y, 0.0).u));
 	}
 
-	//add faces
+	// add faces
 	{
-		//side faces
+		// side faces
 		{
 			const int* _triIndexes = triIndexes;
 			for (unsigned i = 0; i < numberOfTriangles; ++i, _triIndexes += 3)
@@ -126,7 +123,7 @@ bool ccExtru::buildUp()
 			}
 		}
 
-		//thickness
+		// thickness
 		{
 			for (unsigned i = 0; i < count; ++i)
 			{
@@ -142,44 +139,53 @@ bool ccExtru::buildUp()
 	return true;
 }
 
-bool ccExtru::toFile_MeOnly(QFile& out) const
+bool ccExtru::toFile_MeOnly(QFile& out, short dataVersion) const
 {
-	if (!ccGenericPrimitive::toFile_MeOnly(out))
+	assert(out.isOpen() && (out.openMode() & QIODevice::WriteOnly));
+	if (dataVersion < 21)
+	{
+		assert(false);
 		return false;
+	}
 
-	//parameters (dataVersion>=21)
+	if (!ccGenericPrimitive::toFile_MeOnly(out, dataVersion))
+	{
+		return false;
+	}
+
+	// parameters (dataVersion>=21)
 	QDataStream outStream(&out);
 	outStream << m_height;
-	//profile size
-	outStream << (qint32)m_profile.size();
-	//profile points (2D)
-	for (unsigned i=0; i<m_profile.size(); ++i)
+	// profile size
+	outStream << static_cast<qint32>(m_profile.size());
+	// profile points (2D)
+	for (const auto& vec2 : m_profile)
 	{
-		outStream << m_profile[i].x;
-		outStream << m_profile[i].y;
+		outStream << vec2.x;
+		outStream << vec2.y;
 	}
 
 	return true;
 }
 
-bool ccExtru::fromFile_MeOnly(QFile& in, short dataVersion, int flags, LoadedIDMap& oldToNewIDMap)
+bool ccExtru::fromFile_MeOnly(QFile& in, LoadingContext& context)
 {
-	if (!ccGenericPrimitive::fromFile_MeOnly(in, dataVersion, flags, oldToNewIDMap))
+	if (!ccGenericPrimitive::fromFile_MeOnly(in, context))
 		return false;
 
-	//parameters (dataVersion>=21)
+	// parameters (dataVersion>=21)
 	QDataStream inStream(&in);
-	ccSerializationHelper::CoordsFromDataStream(inStream, flags, &m_height);
-	//profile size
+	ccSerializationHelper::CoordsFromDataStream(inStream, context.flags, &m_height);
+	// profile size
 	qint32 vertCount;
 	inStream >> vertCount;
 	if (vertCount)
 	{
 		m_profile.resize(vertCount);
-		//profile points (2D)
-		for (unsigned i = 0; i < m_profile.size(); ++i)
+		// profile points (2D)
+		for (auto& vec2 : m_profile)
 		{
-			ccSerializationHelper::CoordsFromDataStream(inStream, flags, m_profile[i].u, 2);
+			ccSerializationHelper::CoordsFromDataStream(inStream, context.flags, vec2.u, 2);
 		}
 	}
 	else
@@ -188,4 +194,9 @@ bool ccExtru::fromFile_MeOnly(QFile& in, short dataVersion, int flags, LoadedIDM
 	}
 
 	return true;
+}
+
+short ccExtru::minimumFileVersion_MeOnly() const
+{
+	return std::max(static_cast<short>(21), ccGenericPrimitive::minimumFileVersion_MeOnly());
 }

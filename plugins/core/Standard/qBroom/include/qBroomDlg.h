@@ -1,3 +1,5 @@
+#pragma once
+
 //##########################################################################
 //#                                                                        #
 //#                       CLOUDCOMPARE PLUGIN: qBroom                      #
@@ -15,15 +17,13 @@
 //#                                                                        #
 //##########################################################################
 
-#ifndef CC_BROOM_DLG_HEADER
-#define CC_BROOM_DLG_HEADER
-
 #include "ui_broomDlg.h"
 
 //CCCoreLib
 #include <CCGeom.h>
 
 //qCC_db
+#include <ccAdvancedTypes.h>
 #include <ccGLMatrix.h>
 
 //system
@@ -34,14 +34,13 @@ class ccHObject;
 class ccGenericPointCloud;
 class ccPointCloud;
 class ccPolyline;
-class ccGLWindow;
+class ccGLWindowInterface;
 class ccBox;
 class cc2DLabel;
 class ccScalarField;
 class ccProgressDialog;
 class ccGenericGLDisplay;
 class ccMainAppInterface;
-class RGBAColorsTableType;
 
 //! Dialog for the qBroom plugin
 class qBroomDlg : public QDialog, public Ui::BroomDialog
@@ -51,7 +50,7 @@ class qBroomDlg : public QDialog, public Ui::BroomDialog
 public:
 
 	//! Default constructor
-	explicit qBroomDlg(ccMainAppInterface* app = 0);
+	explicit qBroomDlg(ccMainAppInterface* app = nullptr);
 
 	//! Destructor
 	virtual ~qBroomDlg();
@@ -126,7 +125,7 @@ protected: //methods
 	bool moveBroom(ccGLMatrix& broomTrans, CCVector3d& broomDelta, bool stickToTheFloor) const;
 
 	//! Select the points inside or above/below the broom
-	bool selectPoints(const ccGLMatrix& broomTrans, BroomDimensions* _broom = 0);
+	bool selectPoints(const ccGLMatrix& broomTrans, BroomDimensions* _broom = nullptr);
 
 	//! Automate the process
 	bool startAutomation();
@@ -177,7 +176,7 @@ protected: //members
 	struct CloudBackup
 	{
 		ccPointCloud* ref;
-		RGBAColorsTableType* colors;
+		RGBAColorsTableType::Shared colors;
 		bool hadColors;
 		int displayedSFIndex;
 		ccGenericGLDisplay* originDisplay;
@@ -225,7 +224,7 @@ protected: //members
 	CloudBackup m_cloud;
 
 	//! Dialog's own 3D view
-	ccGLWindow* m_glWindow;
+	ccGLWindowInterface* m_glWindow;
 
 	//! Broom box
 	ccBox* m_broomBox;
@@ -298,5 +297,3 @@ protected: //members
 	//! First cloud
 	ccPointCloud* m_initialCloud;
 };
-
-#endif

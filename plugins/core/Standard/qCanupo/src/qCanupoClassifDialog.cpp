@@ -22,9 +22,11 @@
 #include "qCanupoTools.h"
 
 //qCC_plugins
-#include "ccMainAppInterface.h"
+#include <ccMainAppInterface.h>
+#include <ccQtHelpers.h>
 
 //qCC_db
+#include <ccFileUtils.h>
 #include <ccPointCloud.h>
 
 //Qt
@@ -49,9 +51,9 @@ qCanupoClassifDialog::qCanupoClassifDialog(ccPointCloud* cloud, ccMainAppInterfa
 	generateRoughnessSFsCheckBox->setVisible(false);
 #endif
 
-	int maxThreadCount = QThread::idealThreadCount();
-	maxThreadCountSpinBox->setRange(1, maxThreadCount);
-	maxThreadCountSpinBox->setSuffix(QString(" / %1").arg(maxThreadCount));
+	static const int MaxThreadCount = QThread::idealThreadCount();
+	maxThreadCountSpinBox->setRange(1, MaxThreadCount);
+	maxThreadCountSpinBox->setSuffix(QString(" / %1").arg(MaxThreadCount));
 
 	loadParamsFromPersistentSettings();
 
@@ -66,12 +68,12 @@ qCanupoClassifDialog::qCanupoClassifDialog(ccPointCloud* cloud, ccMainAppInterfa
 		//add list of clouds to the combo-boxes
 		ccHObject::Container clouds;
 		if (m_app->dbRootObject())
-			m_app->dbRootObject()->filterChildren(clouds,true,CC_TYPES::POINT_CLOUD);
+			m_app->dbRootObject()->filterChildren(clouds, true, CC_TYPES::POINT_CLOUD);
 
-		for (size_t i=0; i<clouds.size(); ++i)
+		for (size_t i = 0; i < clouds.size(); ++i)
 		{
 			if (clouds[i]->isA(CC_TYPES::POINT_CLOUD)) //as filterChildren only test 'isKindOf'
-				cpOtherCloudComboBox->addItem(qCanupoTools::GetEntityName(clouds[i]),QVariant(clouds[i]->getUniqueID()));
+				cpOtherCloudComboBox->addItem(qCanupoTools::GetEntityName(clouds[i]), QVariant(clouds[i]->getUniqueID()));
 		}
 	}
 
@@ -156,18 +158,18 @@ void qCanupoClassifDialog::loadParamsFromPersistentSettings()
 	//double step = settings.value("Step",stepScaleDoubleSpinBox->value()).toDouble();
 	//double maxScale = settings.value("MaxScale",maxScaleDoubleSpinBox->value()).toDouble();
 
-	double subsampleRadius = settings.value("SubsampleRadius",cpSubsamplingDoubleSpinBox->value()).toDouble();
-	bool subsampleEnabled = settings.value("SubsampleEnabled",cpSubsampleRadioButton->isChecked()).toBool();
+	double subsampleRadius = settings.value("SubsampleRadius", cpSubsamplingDoubleSpinBox->value()).toDouble();
+	bool subsampleEnabled = settings.value("SubsampleEnabled", cpSubsampleRadioButton->isChecked()).toBool();
 
-	QString currentPath = settings.value("CurrentPath",QApplication::applicationDirPath()).toString();
-	QString mscCurrentPath = settings.value("MscCurrentPath",QApplication::applicationDirPath()).toString();
+	QString currentPath = settings.value("CurrentPath", ccFileUtils::defaultDocPath()).toString();
+	QString mscCurrentPath = settings.value("MscCurrentPath", ccFileUtils::defaultDocPath()).toString();
 
-	bool useConfThreshold = settings.value("UseConfThreshold",useConfThresholdGroupBox->isChecked()).toBool();
-	double pok = settings.value("Pok",pokDoubleSpinBox->value()).toDouble();
-	bool useSF = settings.value("UseSF",useSFCheckBox->isChecked()).toBool();
-	bool additionalSF = settings.value("AdditionalSF",generateAdditionalSFsCheckBox->isChecked()).toBool();
-	bool roughnessSF = settings.value("RoughnessSF",generateRoughnessSFsCheckBox->isChecked()).toBool();
-	int maxThreadCount = settings.value("MaxThreadCount", maxThreadCountSpinBox->maximum()).toInt();
+	bool useConfThreshold = settings.value("UseConfThreshold", useConfThresholdGroupBox->isChecked()).toBool();
+	double pok = settings.value("Pok", pokDoubleSpinBox->value()).toDouble();
+	bool useSF = settings.value("UseSF", useSFCheckBox->isChecked()).toBool();
+	bool additionalSF = settings.value("AdditionalSF", generateAdditionalSFsCheckBox->isChecked()).toBool();
+	bool roughnessSF = settings.value("RoughnessSF", generateRoughnessSFsCheckBox->isChecked()).toBool();
+	int maxThreadCount = settings.value("MaxThreadCount", ccQtHelpers::GetMaxThreadCount()).toInt(); // always leave one thread/core to let the application breath
 
 	//apply parameters
 
@@ -178,7 +180,7 @@ void qCanupoClassifDialog::loadParamsFromPersistentSettings()
 	cpSubsamplingDoubleSpinBox->setValue(subsampleRadius);
 	if (subsampleEnabled)
 		cpSubsampleRadioButton->setChecked(true);
-	
+
 	classifFileLineEdit->setText(currentPath);
 	mscFileLineEdit->setText(mscCurrentPath);
 
@@ -200,17 +202,17 @@ void qCanupoClassifDialog::saveParamsToPersistentSettings()
 	//settings.setValue("Step",stepScaleDoubleSpinBox->value());
 	//settings.setValue("MaxScale",maxScaleDoubleSpinBox->value());
 
-	settings.setValue("SubsampleRadius",cpSubsamplingDoubleSpinBox->value());
-	settings.setValue("SubsampleEnabled",cpSubsampleRadioButton->isChecked());
+	settings.setValue("SubsampleRadius", cpSubsamplingDoubleSpinBox->value());
+	settings.setValue("SubsampleEnabled", cpSubsampleRadioButton->isChecked());
 
 	QString currentPath = QFileInfo(classifFileLineEdit->text()).absolutePath();
-	settings.setValue("CurrentPath",currentPath);
+	settings.setValue("CurrentPath", currentPath);
 
-	settings.setValue("UseConfThreshold",useConfThresholdGroupBox->isChecked());
-	settings.setValue("Pok",pokDoubleSpinBox->value());
-	settings.setValue("UseSF",useSFCheckBox->isChecked());
-	settings.setValue("AdditionalSF",generateAdditionalSFsCheckBox->isChecked());
-	settings.setValue("RoughnessSF",generateRoughnessSFsCheckBox->isChecked());
+	settings.setValue("UseConfThreshold", useConfThresholdGroupBox->isChecked());
+	settings.setValue("Pok", pokDoubleSpinBox->value());
+	settings.setValue("UseSF", useSFCheckBox->isChecked());
+	settings.setValue("AdditionalSF", generateAdditionalSFsCheckBox->isChecked());
+	settings.setValue("RoughnessSF", generateRoughnessSFsCheckBox->isChecked());
 
 	settings.setValue("MaxThreadCount", maxThreadCountSpinBox->value());
 }
@@ -220,16 +222,16 @@ void qCanupoClassifDialog::browseMscFile()
 	//select file to open
 	QSettings settings("qCanupo");
 	settings.beginGroup("Classif");
-	QString currentPath = settings.value("MscCurrentPath",mscFileLineEdit->text()).toString();
+	QString currentPath = settings.value("MscCurrentPath", mscFileLineEdit->text()).toString();
 
-	QString filename = QFileDialog::getOpenFileName(this,"Load MSC file",currentPath,"*.msc");
+	QString filename = QFileDialog::getOpenFileName(this, "Load MSC file", currentPath, "*.msc");
 	if (filename.isEmpty())
 		return;
 
 	//we update current file path
 	mscFileLineEdit->setText(filename);
 	currentPath = QFileInfo(filename).absolutePath();
-	settings.setValue("MscCurrentPath",currentPath);
+	settings.setValue("MscCurrentPath", currentPath);
 }
 
 void qCanupoClassifDialog::browseClassifierFile()
@@ -238,16 +240,16 @@ void qCanupoClassifDialog::browseClassifierFile()
 	QString filename;
 	QSettings settings("qCanupo");
 	settings.beginGroup("Classif");
-	QString currentPath = settings.value("CurrentPath",classifFileLineEdit->text()).toString();
+	QString currentPath = settings.value("CurrentPath", classifFileLineEdit->text()).toString();
 
-	filename = QFileDialog::getOpenFileName(this,"Load classifier file",currentPath,"*.prm");
+	filename = QFileDialog::getOpenFileName(this, "Load classifier file", currentPath, "*.prm");
 	if (filename.isEmpty())
 		return;
 
 	//we update current file path
 	classifFileLineEdit->setText(filename);
 	currentPath = QFileInfo(filename).absolutePath();
-	settings.setValue("CurrentPath",currentPath);
+	settings.setValue("CurrentPath", currentPath);
 
 	//and we try to load the file header (to display some info)
 	std::vector<Classifier> classifiers;
@@ -263,19 +265,19 @@ void qCanupoClassifDialog::browseClassifierFile()
 
 		assert(header.descID != 0);
 		ScaleParamsComputer* computer = ScaleParamsComputer::GetByID(header.descID);
-		QString descriptorName = computer? computer->getName() : QString("INVALID");
+		QString descriptorName = computer ? computer->getName() : QString("INVALID");
 		fileDesc << QString("Descriptor ID: %1 (%2)").arg(header.descID).arg(descriptorName);
 
 		fileDesc << QString("Dimensions per scale: %1").arg(header.dimPerScale);
 		fileDesc << QString("Scales: %1").arg(scales.size());
 		QString scalesStr("    [ ");
-		for (size_t i=0; i<scales.size(); ++i)
-			scalesStr.append(QString("%1 ").arg(scales[scales.size()-1-i])); //reverse order as scales are sorted from biggest to smallest
+		for (size_t i = 0; i < scales.size(); ++i)
+			scalesStr.append(QString("%1 ").arg(scales[scales.size() - 1 - i])); //reverse order as scales are sorted from biggest to smallest
 		scalesStr.append("]");
 		fileDesc << scalesStr;
 
 		classifInfoTextEdit->setText(fileDesc.join("\n"));
-	
+
 		buttonBox->button(QDialogButtonBox::Ok)->setEnabled(true);
 	}
 	else

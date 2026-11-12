@@ -16,7 +16,7 @@
 //#  Zhang W, Qi J, Wan P, Wang H, Xie D, Wang X, Yan G. An Easy-to-Use Airborne LiDAR  #
 //#  Data Filtering Method Based on Cloth Simulation. Remote Sensing. 2016; 8(6):501.   #
 //#                                                                                     #
-//#                                     Copyright ©                                     #
+//#                                    Copyright (c)                                    #
 //#               RAMM laboratory, School of Geography, Beijing Normal University       #
 //#                               (http://ramm.bnu.edu.cn/)                             #
 //#                                                                                     #
@@ -28,12 +28,13 @@
 
 #include "ccCSFDlg.h"
 
-#include <ccOctree.h>
-
 static int MaxIteration = 500;
 static double cloth_resolution = 1.5;
 static double class_threshold = 0.5;
-ccCSFDlg::ccCSFDlg(QWidget* parent) : QDialog(parent), Ui::CSFDialog()
+
+ccCSFDlg::ccCSFDlg(QWidget* parent)
+	: QDialog(parent)
+	, Ui::CSFDialog()
 {
 	setupUi(this);
 
@@ -44,7 +45,6 @@ ccCSFDlg::ccCSFDlg(QWidget* parent) : QDialog(parent), Ui::CSFDialog()
 	MaxIterationSpinBox->setValue(MaxIteration);
 	cloth_resolutionSpinBox->setValue(cloth_resolution);
 	class_thresholdSpinBox->setValue(class_threshold);
-
 }
 
 void ccCSFDlg::saveSettings()

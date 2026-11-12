@@ -17,7 +17,7 @@
 
 #include "ccSNECloud.h"
 #include <ccScalarField.h>
-#include <ccColorRampShader.h>
+
 //pass ctors straight to ccPointCloud
 ccSNECloud::ccSNECloud()
 	: ccPointCloud()
@@ -27,12 +27,21 @@ ccSNECloud::ccSNECloud()
 
 ccSNECloud::ccSNECloud(ccPointCloud* obj)
 	: ccPointCloud()
-{ 
-	//copy points, normals and scalar fields from obj.
-	*this += obj;
+{
+	if (obj)
+	{
+		//copy points, normals and scalar fields from obj.
+		*this += obj;
 
-	//set name
-	setName(obj->getName());
+		copyGlobalShiftAndScale(*obj);
+
+		//set name
+		setName(obj->getName());
+	}
+	else
+	{
+		assert(false);
+	}
 
 	//update metadata
 	updateMetadata();
@@ -41,9 +50,7 @@ ccSNECloud::ccSNECloud(ccPointCloud* obj)
 void ccSNECloud::updateMetadata()
 {
 	//add metadata tag defining the ccCompass class type
-	QVariantMap* map = new QVariantMap();
-	map->insert("ccCompassType", "SNECloud");
-	setMetaData(*map, true);
+	setMetaData("ccCompassType", "SNECloud");
 }
 
 //returns true if object is a lineation
@@ -138,12 +145,12 @@ void ccSNECloud::drawMeOnly(CC_DRAW_CONTEXT& context)
 			{
 				const ccColor::Rgb* col = m_currentDisplayedScalarField->getColor(m_currentDisplayedScalarField->getValue(p));
 				const ccColor::Rgba col4(col->r, col->g, col->b, 200);
-				glFunc->glColor4ubv(col4.rgba);
+				ccGL::Color(glFunc, col4);
 			}
 			else
 			{
-				const ccColor::Rgba col4(200, 200, 200, 200);
-				glFunc->glColor4ubv(col4.rgba);
+				static const ccColor::Rgba Col4(200, 200, 200, 200);
+				ccGL::Color(glFunc, Col4);
 			}
 
 			//get length from thickness (if defined)

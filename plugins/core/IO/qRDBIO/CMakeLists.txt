@@ -37,7 +37,9 @@ if( PLUGIN_IO_QRDB )
 		message(STATUS "PLUGIN_IO_QRDB: downloading rdb_sdk version '${_RDB_VERSION}' from URL '${_RDB_URL}'")
 		include(FetchContent)
 		FetchContent_Declare(rdb_sdk
-			URL "${_RDB_URL}")
+			URL "${_RDB_URL}"
+			DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+		)
 		FetchContent_GetProperties(rdb_sdk)
 		if (NOT rdb_sdk_POPULATED)
 			FetchContent_Populate(rdb_sdk)
@@ -63,24 +65,32 @@ if( PLUGIN_IO_QRDB )
 	if( PLUGIN_IO_QRDB_INSTALL_DEPENDENCY )
 		if(MSVC)
 			# on Windows put the dll to the binaries for them to find them
-			set(_rdb_libdir "${CLOUDCOMPARE_DEST_FOLDER}")
+			set(_rdb_libdirs "${CLOUDCOMPARE_DEST_FOLDER}")
+			if (${OPTION_BUILD_CCVIEWER})
+				list(APPEND _rdb_libdirs "${CCVIEWER_DEST_FOLDER}")
+			endif()
+		elseif(APPLE)
+			set(_rdb_libdirs CLOUDCOMPARE_MAC_FRAMEWORK_DIR)
 		else()
 			# some distros prefer "lib" others like more specific folders like "lib64" (handled by GNUInstallDirs)
 			if( CMAKE_INSTALL_LIBDIR STREQUAL "" )
 				# see: https://cmake.org/cmake/help/latest/module/GNUInstallDirs.html
 				include(GNUInstallDirs)
 			endif()
-			if( CMAKE_INSTALL_LIBDIR STREQUAL "" )
-				# still no library destination? just use "lib" to be extra save
-				set(_rdb_libdir "lib")
+
+			if( NOT CMAKE_INSTALL_LIBDIR OR CMAKE_INSTALL_LIBDIR STREQUAL "" )
+				# still no library destination? just use "lib" to be extra safe
+				set(_rdb_libdirs "lib")
 			else()
-				set(_rdb_libdir "${CMAKE_INSTALL_LIBDIR}")
+				set(_rdb_libdirs "${CMAKE_INSTALL_LIBDIR}")
 			endif()
 		endif()
 		get_target_property(RDB_LIBRARY_FILE rdbc IMPORTED_LOCATION)
 		# resolve possible symlink and install the real library
 		get_filename_component(lib_REAL ${RDB_LIBRARY_FILE} REALPATH)
-		_InstallFiles(FILES ${lib_REAL} DEST_PATH ${_rdb_libdir})
+		foreach (dest ${_rdb_libdirs})
+			_InstallFiles(FILES ${lib_REAL} DEST_PATH ${dest})
+		endforeach()
 		if( NOT WIN32 )
 			# find all the symlinks linking to lib_REAL
 			string(REGEX MATCH "\\.so" is_shared_lib_linux "${RDB_LIBRARY_FILE}")
@@ -99,14 +109,18 @@ if( PLUGIN_IO_QRDB )
 						continue() # we found the real lib, not a symlink, skip it
 					endif()
 					# actually install the found symlink
-					_InstallFiles(FILES ${lib_sym} DEST_PATH ${_rdb_libdir})
+					foreach (dest ${_rdb_libdirs})
+						_InstallFiles(FILES ${lib_sym} DEST_PATH ${dest})
+					endforeach()
 				endforeach()
 			else() # neither linux nor darwin,
 				# no special symlink handling implemented, just install if different paths to prevent doulbe installation
 				STRING(COMPARE NOTEQUAL "${RDB_LIBRARY_FILE}" "${lib_REAL}" real_lib_different)
 				if(real_lib_different)
 					# only install if different
-					_InstallFiles(FILES ${RDB_LIBRARY_FILE}  DEST_PATH ${_rdb_libdir})
+					foreach (dest ${_rdb_libdirs})
+						_InstallFiles(FILES ${RDB_LIBRARY_FILE} DEST_PATH ${dest})
+					endforeach()
 				endif()
 			endif()
 		endif() # NOT WIN32

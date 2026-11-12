@@ -174,7 +174,7 @@ bool Classifier::Load(QString filename,
 	std::vector<Classifier>& classifiers,
 	std::vector<float>& scales,
 	QString& error,
-	FileHeader* header/*=0*/,
+	FileHeader* header/*=nullptr*/,
 	bool headerOnly/*=false*/)
 {
 	QFile file(filename);
@@ -217,7 +217,7 @@ bool Classifier::Load(QString filename,
 	}
 	catch (const std::bad_alloc&)
 	{
-		error = QString("Not enough memory!");
+		error = QString("Not enough memory to load scales!");
 		return false;
 	}
 
@@ -251,7 +251,7 @@ bool Classifier::Load(QString filename,
 	}
 	catch (const std::bad_alloc&)
 	{
-		error = QString("Not enough memory!");
+		error = QString("Not enough memory to load classifiers!");
 		return false;
 	}
 
@@ -309,7 +309,7 @@ bool Classifier::Load(QString filename,
 	}
 	catch (const std::bad_alloc&)
 	{
-		error = QString("Not enough memory!");
+		error = QString("Not enough memory to load classifiers data!");
 		return false;
 	}
 

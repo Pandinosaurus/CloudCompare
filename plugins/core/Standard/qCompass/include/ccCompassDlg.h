@@ -24,7 +24,6 @@
 #include <QAction>
 
 //CC
-#include <ccGLWindow.h>
 #include <ccOverlayDialog.h>
 
 //Local
@@ -37,7 +36,7 @@ class ccCompassDlg : public ccOverlayDialog, public Ui::compassDlg
 
 public:
 	//! Default constructor
-	explicit ccCompassDlg(QWidget* parent = 0);
+	explicit ccCompassDlg(QWidget* parent/*=nullptr*/);
 
 	/*
 	Returns a flag describing the currently selected ccTrace::COST_MODE (used to build the cost function for optimisation)

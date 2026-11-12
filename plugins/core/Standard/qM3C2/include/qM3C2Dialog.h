@@ -37,7 +37,7 @@ class qM3C2Dialog : public QDialog, public Ui::M3C2Dialog
 public:
 
 	//! Default constructor
-	qM3C2Dialog(ccPointCloud* cloud1, ccPointCloud* cloud2, ccMainAppInterface* app);
+	qM3C2Dialog(ccPointCloud* cloud1, ccPointCloud* cloud2, ccMainAppInterface* app, ccPointCloud* corePointsCloud=nullptr);
 
 	//! Returns cloud #1
 	ccPointCloud* getCloud1() const { return m_cloud1; }
@@ -52,7 +52,7 @@ public:
 	ccPointCloud* getCorePointsCloud() const;
 
 	//! Sets the core points cloud
-	void setCorePointsCloud(ccPointCloud* cloud) { m_corePointsCloud = cloud; }
+	void setCorePointsCloud(ccPointCloud* cloud);
 
 	//! Returns the cloud to be used for normals orientation (if any)
 	ccPointCloud* getNormalsOrientationCloud() const;
@@ -71,6 +71,9 @@ public:
 
 	//! Returns selected export option
 	ExportOptions getExportOption() const;
+
+	//! Returns the computation mode read in the parameter file (usefull in command line calls)
+	qM3C2Normals::ComputationMode getRequestedComputationMode() const {return m_requestedComputationMode;}
 
 	//! Returns whether the original cloud should be kept instead of creating a new output one
 	/** Only valid if the export option is PROJECT_ON_CORE_POINTS.
@@ -126,6 +129,9 @@ protected: //members
 	ccPointCloud* m_cloud1;
 	ccPointCloud* m_cloud2;
 	ccPointCloud* m_corePointsCloud;
+
+	//! Computation mode requested in a parameter file during a command line call
+	qM3C2Normals::ComputationMode m_requestedComputationMode = qM3C2Normals::DEFAULT_MODE;
 };
 
 #endif //Q_M3C2_DIALOG_HEADER

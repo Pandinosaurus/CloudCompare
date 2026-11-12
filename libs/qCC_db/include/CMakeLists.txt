@@ -7,12 +7,15 @@ target_sources( ${PROJECT_NAME}
 		${CMAKE_CURRENT_LIST_DIR}/cc2DViewportObject.h
 		${CMAKE_CURRENT_LIST_DIR}/ccAdvancedTypes.h
 		${CMAKE_CURRENT_LIST_DIR}/ccArray.h
+		${CMAKE_CURRENT_LIST_DIR}/ccBackgroundTask.h
 		${CMAKE_CURRENT_LIST_DIR}/ccBasicTypes.h
 		${CMAKE_CURRENT_LIST_DIR}/ccBBox.h
 		${CMAKE_CURRENT_LIST_DIR}/ccBox.h
 		${CMAKE_CURRENT_LIST_DIR}/ccCameraSensor.h
+		${CMAKE_CURRENT_LIST_DIR}/ccCircle.h
 		${CMAKE_CURRENT_LIST_DIR}/ccChunk.h
 		${CMAKE_CURRENT_LIST_DIR}/ccClipBox.h
+		${CMAKE_CURRENT_LIST_DIR}/ccColorBasedEntityPicking.h
 		${CMAKE_CURRENT_LIST_DIR}/ccColorRampShader.h
 		${CMAKE_CURRENT_LIST_DIR}/ccColorScale.h
 		${CMAKE_CURRENT_LIST_DIR}/ccColorScalesManager.h
@@ -22,6 +25,7 @@ target_sources( ${PROJECT_NAME}
 		${CMAKE_CURRENT_LIST_DIR}/ccCustomObject.h
 		${CMAKE_CURRENT_LIST_DIR}/ccCylinder.h
 		${CMAKE_CURRENT_LIST_DIR}/ccDepthBuffer.h
+		${CMAKE_CURRENT_LIST_DIR}/ccDisc.h
 		${CMAKE_CURRENT_LIST_DIR}/ccDish.h
 		${CMAKE_CURRENT_LIST_DIR}/ccDrawableObject.h
 		${CMAKE_CURRENT_LIST_DIR}/ccExternalFactory.h
@@ -39,6 +43,7 @@ target_sources( ${PROJECT_NAME}
 		${CMAKE_CURRENT_LIST_DIR}/ccGLDrawContext.h
 		${CMAKE_CURRENT_LIST_DIR}/ccGLMatrix.h
 		${CMAKE_CURRENT_LIST_DIR}/ccGLMatrixTpl.h
+		${CMAKE_CURRENT_LIST_DIR}/ccGLSLHelper.h
 		${CMAKE_CURRENT_LIST_DIR}/ccGriddedTools.h
 		${CMAKE_CURRENT_LIST_DIR}/ccHObject.h
 		${CMAKE_CURRENT_LIST_DIR}/ccHObjectCaster.h
@@ -74,7 +79,6 @@ target_sources( ${PROJECT_NAME}
 		${CMAKE_CURRENT_LIST_DIR}/ccSensor.h
 		${CMAKE_CURRENT_LIST_DIR}/ccSerializableObject.h
 		${CMAKE_CURRENT_LIST_DIR}/ccShiftedObject.h
-		${CMAKE_CURRENT_LIST_DIR}/ccSingleton.h
 		${CMAKE_CURRENT_LIST_DIR}/ccSphere.h
 		${CMAKE_CURRENT_LIST_DIR}/ccSubMesh.h
 		${CMAKE_CURRENT_LIST_DIR}/ccTorus.h

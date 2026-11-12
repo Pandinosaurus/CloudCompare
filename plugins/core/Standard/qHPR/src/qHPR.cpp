@@ -30,7 +30,7 @@
 #include <cc2DViewportObject.h>
 
 //qCC
-#include <ccGLWindow.h>
+#include <ccGLWindowInterface.h>
 
 //CCCoreLib
 #include <CloudSamplingTools.h>
@@ -102,7 +102,7 @@ CCCoreLib::ReferenceCloud* qHPR::removeHiddenPoints(CCCoreLib::GenericIndexedClo
 
 		for (unsigned i = 0; i < nbPoints; ++i)
 		{
-			CCVector3d P = CCVector3d::fromArray(theCloud->getPoint(i)->u) - viewPoint;
+			CCVector3d P = theCloud->getPoint(i)->toDouble() - viewPoint;
 			*_pt_array++ = static_cast<coordT>(P.x);
 			*_pt_array++ = static_cast<coordT>(P.y);
 			*_pt_array++ = static_cast<coordT>(P.z);
@@ -128,7 +128,7 @@ CCCoreLib::ReferenceCloud* qHPR::removeHiddenPoints(CCCoreLib::GenericIndexedClo
 		coordT* _pt_array = pt_array;
 		for (unsigned i = 0; i < nbPoints; ++i)
 		{
-			CCVector3d P = CCVector3d::fromArray(theCloud->getPoint(i)->u) - viewPoint;
+			CCVector3d P = theCloud->getPoint(i)->toDouble() - viewPoint;
 
 			double r = (maxRadius / P.norm()) - 1.0;
 			*_pt_array++ *= r;
@@ -228,7 +228,7 @@ void qHPR::doAction()
 
 	ccPointCloud* cloud = static_cast<ccPointCloud*>(selectedEntities[0]);
 
-	ccGLWindow* win = m_app->getActiveGLWindow();
+	ccGLWindowInterface* win = m_app->getActiveGLWindow();
 	if (!win)
 	{
 		m_app->dispToConsole("No active window!", ccMainAppInterface::ERR_CONSOLE_MESSAGE);
@@ -279,12 +279,12 @@ void qHPR::doAction()
 	}
 
 	//HPR
-	QScopedPointer<CCCoreLib::ReferenceCloud> visibleCells;
+	std::unique_ptr<CCCoreLib::ReferenceCloud> visibleCells;
 	{
 		QElapsedTimer eTimer;
 		eTimer.start();
 
-		QScopedPointer<CCCoreLib::ReferenceCloud> theCellCenters( CCCoreLib::CloudSamplingTools::subsampleCloudWithOctreeAtLevel(	cloud,
+		std::unique_ptr<CCCoreLib::ReferenceCloud> theCellCenters( CCCoreLib::CloudSamplingTools::subsampleCloudWithOctreeAtLevel(	cloud,
 																											static_cast<unsigned char>(octreeLevel),
 																											CCCoreLib::CloudSamplingTools::NEAREST_POINT_TO_CELL_CENTER,
 																											&progressCb,
@@ -295,7 +295,7 @@ void qHPR::doAction()
 			return;
 		}
 
-		visibleCells.reset(removeHiddenPoints(theCellCenters.data(), viewPoint, 3.5));
+		visibleCells.reset(removeHiddenPoints(theCellCenters.get(), viewPoint, 3.5));
 
 		m_app->dispToConsole(QString("[HPR] Cells: %1 - Time: %2 s").arg(theCellCenters->size()).arg(eTimer.elapsed() / 1.0e3));
 

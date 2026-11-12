@@ -25,7 +25,7 @@
 #include <ccPolyline.h>
 #include <ccPointCloud.h>
 //qCC_gl
-#include <ccGLWindow.h>
+#include <ccGLWindowInterface.h>
 
 //Qt
 #include <QtGui>
@@ -57,7 +57,7 @@
 static const QString s_stepDurationKey("StepDurationSec");
 static const QString s_stepEnabledKey("StepEnabled");
 
-qAnimationDlg::qAnimationDlg(ccGLWindow* view3d, QWidget* parent)
+qAnimationDlg::qAnimationDlg(ccGLWindowInterface* view3d, QWidget* parent)
 	: QDialog(parent, Qt::Tool)
 	, Ui::AnimationDialog()
 	, m_view3d(view3d)
@@ -69,7 +69,7 @@ qAnimationDlg::qAnimationDlg(ccGLWindow* view3d, QWidget* parent)
 	{
 		QSettings settings;
 		settings.beginGroup("qAnimation");
-		
+
 		//last filename
 		{
 			QString defaultDir;
@@ -109,7 +109,7 @@ qAnimationDlg::qAnimationDlg(ccGLWindow* view3d, QWidget* parent)
 			smoothTrajectoryGroupBox->setChecked(smoothTrajectory);
 			smoothRatioDoubleSpinBox->setValue(smoothRatio);
 		}
-		
+
 		settings.endGroup();
 	}
 
@@ -124,12 +124,17 @@ qAnimationDlg::qAnimationDlg(ccGLWindow* view3d, QWidget* parent)
 			for (const QVideoEncoder::OutputFormat& f : formats)
 			{
 				QString title = f.longName;
+
+				m_codecNamesAndExtensions[f.shortName] = f.extensions;
+
 				if (!f.extensions.isEmpty())
 				{
 					title += "[" + f.extensions + "]";
 					static const int s_maxTitleLength = 48;
 					if (title.size() > s_maxTitleLength)
+					{
 						title = title.left(s_maxTitleLength - 3) + "...";
+					}
 				}
 				outputFormatComboBox->addItem(title, QVariant(f.shortName));
 				if (defaultIndex == 0 && !defaultOutputFormat.isEmpty() && defaultOutputFormat == f.shortName)
@@ -144,11 +149,11 @@ qAnimationDlg::qAnimationDlg(ccGLWindow* view3d, QWidget* parent)
 
 	connect ( autoStepDurationCheckBox,	&QAbstractButton::toggled,		this, &qAnimationDlg::onAutoStepsDurationToggled );
 	connect ( smoothTrajectoryGroupBox,	&QGroupBox::toggled,			this, &qAnimationDlg::onSmoothTrajectoryToggled );
-	connect ( smoothRatioDoubleSpinBox, static_cast<void (QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged),		this, &qAnimationDlg::onSmoothRatioChanged );
-	
-	connect( fpsSpinBox,				static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), this, &qAnimationDlg::onFPSChanged );
-	connect( totalTimeDoubleSpinBox,	static_cast<void (QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged), this, &qAnimationDlg::onTotalTimeChanged );
-	connect( stepTimeDoubleSpinBox,		static_cast<void (QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged), this, &qAnimationDlg::onStepTimeChanged );
+	connect ( smoothRatioDoubleSpinBox, qOverload<double>(&QDoubleSpinBox::valueChanged),		this, &qAnimationDlg::onSmoothRatioChanged );
+
+	connect( fpsSpinBox,				qOverload<int>(&QSpinBox::valueChanged), this, &qAnimationDlg::onFPSChanged );
+	connect( totalTimeDoubleSpinBox,	qOverload<double>(&QDoubleSpinBox::valueChanged), this, &qAnimationDlg::onTotalTimeChanged );
+	connect( stepTimeDoubleSpinBox,		qOverload<double>(&QDoubleSpinBox::valueChanged), this, &qAnimationDlg::onStepTimeChanged );
 	connect( loopCheckBox,				&QAbstractButton::toggled, this, &qAnimationDlg::onLoopToggled );
 
 	connect( browseButton,			&QAbstractButton::clicked,		this, &qAnimationDlg::onBrowseButtonClicked );
@@ -157,6 +162,8 @@ qAnimationDlg::qAnimationDlg(ccGLWindow* view3d, QWidget* parent)
 	connect( exportFramesPushButton,&QAbstractButton::clicked,		this, &qAnimationDlg::renderFrames );
 	connect( buttonBox,				&QDialogButtonBox::accepted,	this, &qAnimationDlg::onAccept );
 	connect( buttonBox,				&QDialogButtonBox::rejected,	this, &qAnimationDlg::onReject );
+
+	connect(outputFormatComboBox, qOverload<int>(&QComboBox::currentIndexChanged), this, &qAnimationDlg::onCodecChanged );
 }
 
 qAnimationDlg::~qAnimationDlg()
@@ -168,14 +175,14 @@ bool qAnimationDlg::smoothModeEnabled() const
 	return smoothTrajectoryGroupBox->isChecked() && !m_smoothVideoSteps.empty();
 }
 
-bool qAnimationDlg::init(const std::vector<cc2DViewportObject*>& viewports)
+bool qAnimationDlg::init(const std::vector<ExtendedViewport>& viewports)
 {
 	if (viewports.size() < 2)
 	{
 		assert(false);
 		return false;
 	}
-	
+
 	try
 	{
 		m_videoSteps.resize(viewports.size());
@@ -191,7 +198,7 @@ bool qAnimationDlg::init(const std::vector<cc2DViewportObject*>& viewports)
 
 	for (size_t i = 0; i < viewports.size(); ++i)
 	{
-		cc2DViewportObject* vp = viewports[i];
+		cc2DViewportObject* vp = viewports[i].viewport;
 
 		//check if the (1st) viewport has a duration in meta data (from a previous run)
 		double duration_sec = 2.0;
@@ -216,9 +223,14 @@ bool qAnimationDlg::init(const std::vector<cc2DViewportObject*>& viewports)
 		stepSelectionList->addItem(item);
 
 		m_videoSteps[i].viewport = vp;
-		m_videoSteps[i].viewportParams = vp->getParameters();
+
+		m_videoSteps[i].params = vp->getParameters();
+		m_videoSteps[i].customLightEnabled = viewports[i].customLightEnabled;
+		m_videoSteps[i].customLightPos = viewports[i].customLightPos;
+
 		m_videoSteps[i].duration_sec = duration_sec;
 		m_videoSteps[i].indexInOriginalTrajectory = static_cast<int>(i);
+
 
 		//compute the real camera center
 		ccGLMatrixd viewMat = vp->getParameters().computeViewMatrix();
@@ -301,7 +313,7 @@ bool qAnimationDlg::updateCameraTrajectory()
 		Step& step1 = m_videoSteps[vp1Index];
 
 		step1.length = (m_videoSteps[vp2Index].cameraCenter - m_videoSteps[vp1Index].cameraCenter).norm();
-		
+
 		if (vp2Index < vp1Index)
 		{
 			//loop mode
@@ -439,14 +451,14 @@ bool qAnimationDlg::smoothTrajectory(double ratio, unsigned iterationCount)
 				const Step& sP = currentIterationTrajectory->at(iP);
 				const Step& sQ = currentIterationTrajectory->at(iQ);
 
-				ViewInterpolate interpolator(sP.viewportParams, sQ.viewportParams);
+				ViewInterpolate interpolator(sP, sQ);
 
 				if (!openPoly || i != 0)
 				{
 					Step interpolatedStep;
 					interpolatedStep.cameraCenter = (CCCoreLib::PC_ONE - ratio) * sP.cameraCenter + ratio * sQ.cameraCenter;
 					interpolatedStep.duration_sec = sP.duration_sec * ratio;
-					interpolator.interpolate(interpolatedStep.viewportParams, ratio);
+					interpolator.interpolate(interpolatedStep, ratio);
 					interpolatedStep.indexInOriginalTrajectory = (it == 0 ? -1 : sP.indexInOriginalTrajectory);
 					newTrajectory.push_back(interpolatedStep);
 				}
@@ -456,7 +468,7 @@ bool qAnimationDlg::smoothTrajectory(double ratio, unsigned iterationCount)
 					Step interpolatedStep;
 					interpolatedStep.cameraCenter = ratio * sP.cameraCenter + (CCCoreLib::PC_ONE - ratio) * sQ.cameraCenter;
 					interpolatedStep.duration_sec = sP.duration_sec * (CCCoreLib::PC_ONE - ratio);
-					interpolator.interpolate(interpolatedStep.viewportParams, CCCoreLib::PC_ONE - ratio);
+					interpolator.interpolate(interpolatedStep, CCCoreLib::PC_ONE - ratio);
 					interpolatedStep.indexInOriginalTrajectory = (it == 0 ? sQ.indexInOriginalTrajectory : -1);
 					newTrajectory.push_back(interpolatedStep);
 				}
@@ -621,7 +633,16 @@ void qAnimationDlg::onAutoStepsDurationToggled(bool state)
 
 		if (CCCoreLib::LessThanEpsilon(length))
 		{
-			step1.duration_sec = 0.0;
+			if (CCCoreLib::LessThanEpsilon(referenceLength))
+			{
+				// if all the steps are '0' (i.e. the camera doesn't move)
+				step1.duration_sec = totalTimeDoubleSpinBox->value() / referenceTrajectory->size();
+			}
+			else
+			{
+				// only this step
+				step1.duration_sec = 0.0;
+			}
 		}
 		else
 		{
@@ -674,8 +695,50 @@ void qAnimationDlg::onSmoothRatioChanged(double ratio)
 
 ccPolyline* qAnimationDlg::getTrajectory()
 {
-	//TODO
-	return nullptr;
+	const Trajectory& trajectory = smoothTrajectoryGroupBox->isChecked() ? m_smoothVideoSteps : m_videoSteps;
+	if (trajectory.size() < 2)
+	{
+		ccLog::Error("Not enough steps");
+		return nullptr;
+	}
+
+	ccPointCloud* vertices = new ccPointCloud("vertices");
+	if (!vertices->reserve(static_cast<unsigned>(trajectory.size())))
+	{
+		ccLog::Error("Not enough memory");
+		delete vertices;
+		return nullptr;
+	}
+
+	for (const Step& step : trajectory)
+	{
+		CCVector3 C = step.cameraCenter.toPC();
+
+		if (vertices->size() != 0)
+		{
+			// check that the camera has moved
+			if (!CCCoreLib::GreaterThanEpsilon((*vertices->getPoint(vertices->size() - 1) - C).norm()))
+			{
+				continue;
+			}
+		}
+		vertices->addPoint(C);
+	}
+	vertices->shrinkToFit();
+
+	ccPolyline* polyline = new ccPolyline(vertices);
+	polyline->addChild(vertices);
+	vertices->setVisible(false);
+	if (!polyline->addPointIndex(0, static_cast<unsigned>(vertices->size())))
+	{
+		ccLog::Error("Not enough memory");
+		delete vertices;
+		return nullptr;
+	}
+	polyline->setClosed(loopCheckBox->isChecked());
+	polyline->setDisplay_recursive(m_videoSteps.front().viewport->getDisplay()); // warning the smoothed version has no valid 'viewport'
+
+	return polyline;
 }
 
 bool qAnimationDlg::exportTrajectoryOnExit()
@@ -707,11 +770,13 @@ int qAnimationDlg::getCurrentStepIndex()
 	return stepSelectionList->currentRow();
 }
 
-void qAnimationDlg::applyViewport( const ccViewportParameters& viewportParameters )
+void qAnimationDlg::applyViewport( const ExtendedViewportParameters& viewportParameters )
 {
 	if (m_view3d)
 	{
-		m_view3d->setViewportParameters(viewportParameters);
+		m_view3d->setViewportParameters(viewportParameters.params);
+		m_view3d->setCustomLight(viewportParameters.customLightEnabled);
+		m_view3d->setCustomLightPosition(viewportParameters.customLightPos);
 		m_view3d->redraw();
 	}
 }
@@ -824,6 +889,38 @@ void qAnimationDlg::onStepTimeChanged(double time_sec)
 	updateCurrentStepDuration();
 	//we have to update the whole smooth trajectory duration as well
 	updateSmoothTrajectoryDurations();
+}
+
+void qAnimationDlg::onCodecChanged(int index)
+{
+	QString filename = outputFileLineEdit->text();
+	if (filename.size() < 3 || !filename.contains('.'))
+	{
+		// nothing to do
+		return;
+	}
+
+	QString codecFormat = outputFormatComboBox->itemData(index).toString();
+	QString extensions = m_codecNamesAndExtensions[codecFormat];
+	if (extensions.isEmpty())
+	{
+		// nothing to do
+		return;
+	}
+
+	QFileInfo fi(filename);
+	QString completeSuffix = fi.completeSuffix();
+
+	if (!extensions.contains(completeSuffix))
+	{
+		// the current extension is not a valid codec extension?
+		// use the first one by default
+		QString newSuffix = extensions.split(',').first();
+
+		filename.replace('.' + completeSuffix, '.' + newSuffix);
+
+		outputFileLineEdit->setText(filename);
+	}
 }
 
 void qAnimationDlg::onBrowseButtonClicked()
@@ -1041,7 +1138,7 @@ void qAnimationDlg::preview()
 	int frameCount = static_cast<int>(fps * remainingTime);
 
 	//show progress dialog
-	QProgressDialog progressDialog(QString("Frames: %1").arg(frameCount), "Cancel", 0, frameCount, this);
+	QProgressDialog progressDialog(tr("Frames: %1").arg(frameCount), "Cancel", 0, frameCount, this);
 	progressDialog.setWindowTitle("Preview");
 	progressDialog.show();
 	progressDialog.setModal(true);
@@ -1049,7 +1146,7 @@ void qAnimationDlg::preview()
 	QApplication::processEvents();
 
 	assert(stepSelectionList->count() >= m_videoSteps.size());
-	
+
 	double currentTime = startTime;
 	double currentStepStartTime = startTime;
 	double timeStep = 1.0 / fps;
@@ -1070,9 +1167,9 @@ void qAnimationDlg::preview()
 		if (deltaTime <= step1.duration_sec)
 		{
 			const Step& step2 = trajectory->at(vp2Index);
-			ViewInterpolate interpolator(step1.viewportParams, step2.viewportParams);
+			ViewInterpolate interpolator(step1, step2);
 
-			ccViewportParameters currentViewport;
+			ExtendedViewportParameters currentViewport;
 			interpolator.interpolate(currentViewport, deltaTime / step1.duration_sec);
 
 			timer.restart();
@@ -1113,7 +1210,7 @@ void qAnimationDlg::preview()
 				{
 					break;
 				}
-				
+
 				//else restart from 0
 				vp1Index = 0;
 				currentStepStartTime = 0.0;
@@ -1195,13 +1292,13 @@ void qAnimationDlg::render(bool asSeparateFrames)
 	assert(renderingMode == SUPER_RESOLUTION || renderingMode == ZOOM);
 
 	//show progress dialog
-	QProgressDialog progressDialog(QString("Frames: %1").arg(frameCount), "Cancel", 0, frameCount, this);
+	QProgressDialog progressDialog(tr("Frames: %1").arg(frameCount), "Cancel", 0, frameCount, this);
 	progressDialog.setWindowTitle("Render");
 	progressDialog.show();
 	QApplication::processEvents();
 
 #ifdef QFFMPEG_SUPPORT
-	QScopedPointer<QVideoEncoder> encoder(0);
+	std::unique_ptr<QVideoEncoder> encoder(nullptr);
 	QSize originalViewSize;
 	if (!asSeparateFrames)
 	{
@@ -1218,7 +1315,7 @@ void qAnimationDlg::render(bool asSeparateFrames)
 					customSize.setWidth((originalViewSize.width() / 8 + 1) * 8);
 				if (originalViewSize.height() % 8)
 					customSize.setHeight((originalViewSize.height() / 8 + 1) * 8);
-				m_view3d->resize(customSize);
+				m_view3d->doResize(customSize);
 				QApplication::processEvents();
 			}
 		}
@@ -1279,9 +1376,9 @@ void qAnimationDlg::render(bool asSeparateFrames)
 		if (deltaTime <= step1.duration_sec)
 		{
 			const Step& step2 = trajectory->at(vp2Index);
-			ViewInterpolate interpolator(step1.viewportParams, step2.viewportParams);
+			ViewInterpolate interpolator(step1, step2);
 
-			ccViewportParameters currentViewport;
+			ExtendedViewportParameters currentViewport;
 			interpolator.interpolate(currentViewport, deltaTime / step1.duration_sec);
 
 			applyViewport(currentViewport);
@@ -1324,7 +1421,7 @@ void qAnimationDlg::render(bool asSeparateFrames)
 				}
 #endif
 			}
-			
+
 			//next frame
 			currentTime += timeStep;
 			++frameIndex;
@@ -1359,7 +1456,7 @@ void qAnimationDlg::render(bool asSeparateFrames)
 		encoder->close();
 
 		//hack: restore original size
-		m_view3d->resize(originalViewSize);
+		m_view3d->doResize(originalViewSize);
 		QApplication::processEvents();
 	}
 #endif
@@ -1409,8 +1506,8 @@ void qAnimationDlg::onCurrentStepChanged(int index)
 
 	if (index >= 0)
 	{
-		//apply either the current or the 
-		applyViewport((smoothModeEnabled() ? m_smoothVideoSteps[m_videoSteps[index].indexInSmoothTrajectory] : m_videoSteps[index]).viewportParams);
+		//apply either the current or the
+		applyViewport(smoothModeEnabled() ? m_smoothVideoSteps[m_videoSteps[index].indexInSmoothTrajectory] : m_videoSteps[index]);
 	}
 
 	//check that the step is enabled

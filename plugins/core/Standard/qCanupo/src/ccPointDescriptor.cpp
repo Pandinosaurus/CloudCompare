@@ -40,7 +40,7 @@
 /************************************/
 
 //useful constant
-static const double SQRT_3_DIV_2 = sqrt(3.0)/2;
+static const double SQRT_3_DIV_2 = sqrt(3.0) / 2;
 
 //! Per-scale "dimensionality" parameters computer (i.e. same as the original CANUPO suite)
 class DimensionalityScaleParamsComputer : public ScaleParamsComputer
@@ -51,16 +51,16 @@ public:
 	DimensionalityScaleParamsComputer() : m_firstScale(true) {}
 
 	//inherited from ScaleParamsComputer
-	virtual unsigned getID() const { return DESC_DIMENSIONALITY; }
+	unsigned getID() const override { return DESC_DIMENSIONALITY; }
 
 	//inherited from ScaleParamsComputer
-	virtual QString getName() const { return "Dimensionality"; }
+	QString getName() const override { return "Dimensionality"; }
 
 	//inherited from ScaleParamsComputer
-	virtual unsigned dimPerScale() const { return 2; }
+	unsigned dimPerScale() const override { return 2; }
 
 	//inherited from ScaleParamsComputer
-	virtual void reset()
+	void reset() override
 	{
 		//a = 1/3, b = 1/3
 		//c = 1 - a - b = 1/3
@@ -74,7 +74,7 @@ public:
 	}
 
 	//inherited from ScaleParamsComputer
-	virtual bool computeScaleParams(CCCoreLib::ReferenceCloud& neighbors, double radius, float params[], bool& invalidScale)
+	void computeScaleParams(CCCoreLib::ReferenceCloud& neighbors, double radius, float params[], bool& invalidScale) override
 	{
 		//PCA analysis
 		if (neighbors.size() >= 3)
@@ -83,7 +83,8 @@ public:
 
 			CCCoreLib::SquareMatrixd eigVectors;
 			std::vector<double> eigValues;
-			if (CCCoreLib::Jacobi<double>::ComputeEigenValuesAndVectors(Z.computeCovarianceMatrix(), eigVectors, eigValues, true))
+			CCCoreLib::SquareMatrixd covarianceMatrix = Z.computeCovarianceMatrix();
+			if (CCCoreLib::Jacobi<double>::ComputeEigenValuesAndVectors(covarianceMatrix, eigVectors, eigValues, true))
 			{
 				CCCoreLib::Jacobi<double>::SortEigenValuesAndVectors(eigVectors, eigValues); //decreasing order of their associated eigenvalues
 
@@ -97,7 +98,12 @@ public:
 						totalVariance += sValues.u[j];
 					}
 				}
-				assert(totalVariance != 0);
+				if (totalVariance < CCCoreLib::ZERO_TOLERANCE_D)
+				{
+					invalidScale = true;
+					params[0] = m_defaultParams[0];
+					params[1] = m_defaultParams[1];
+				}
 				sValues /= totalVariance;
 
 				// Use barycentric coordinates : a for 1D, b for 2D and c for 3D
@@ -128,8 +134,6 @@ public:
 			params[0] = m_defaultParams[0];
 			params[1] = m_defaultParams[1];
 		}
-
-		return true;
 	}
 
 protected:
@@ -151,19 +155,19 @@ public:
 	DimensionalityAndSFScaleParamsComputer() : m_firstScale(true) {}
 
 	//inherited from ScaleParamsComputer
-	virtual unsigned getID() const { return DESC_DIMENSIONALITY_SF; }
+	unsigned getID() const override { return DESC_DIMENSIONALITY_SF; }
 
 	//inherited from ScaleParamsComputer
-	virtual QString getName() const { return "Dimensionality + SF"; }
+	QString getName() const override { return "Dimensionality + SF"; }
 
 	//inherited from ScaleParamsComputer
-	virtual unsigned dimPerScale() const { return 3; }
+	unsigned dimPerScale() const override { return 3; }
 
 	//inherited from ScaleParamsComputer
-	virtual bool needSF() const { return true; }
+	bool needSF() const override { return true; }
 
 	//inherited from ScaleParamsComputer
-	virtual void reset()
+	void reset() override
 	{
 		//a = 1/3, b = 1/3
 		//c = 1 - a - b = 1/3
@@ -179,7 +183,7 @@ public:
 	}
 
 	//inherited from ScaleParamsComputer
-	virtual bool computeScaleParams(CCCoreLib::ReferenceCloud& neighbors, double radius, float params[], bool& invalidScale)
+	void computeScaleParams(CCCoreLib::ReferenceCloud& neighbors, double radius, float params[], bool& invalidScale) override
 	{
 		//PCA analysis
 		if (neighbors.size() >= 3)
@@ -187,7 +191,7 @@ public:
 			//first compute the mean SF value
 			unsigned validCount = 0;
 			double meanVal = 0;
-			for (unsigned i=0; i<neighbors.size(); ++i)
+			for (unsigned i = 0; i < neighbors.size(); ++i)
 			{
 				ScalarType val = neighbors.getPointScalarValue(i);
 				if (CCCoreLib::ScalarField::ValidValue(val))
@@ -208,16 +212,17 @@ public:
 				params[0] = m_defaultParams[0];
 				params[1] = m_defaultParams[1];
 				params[2] = m_defaultParams[2];
-				return true;
+				return;
 			}
 
 			CCCoreLib::Neighbourhood Z(&neighbors);
 
 			CCCoreLib::SquareMatrixd eigVectors;
 			std::vector<double> eigValues;
-			if (Jacobi<double>::ComputeEigenValuesAndVectors(Z.computeCovarianceMatrix(), eigVectors, eigValues, true))
+			CCCoreLib::SquareMatrixd covarianceMatrix = Z.computeCovarianceMatrix();
+			if (CCCoreLib::Jacobi<double>::ComputeEigenValuesAndVectors(covarianceMatrix, eigVectors, eigValues, true))
 			{
-				Jacobi<double>::SortEigenValuesAndVectors(eigVectors, eigValues); //decreasing order of their associated eigenvalues
+				CCCoreLib::Jacobi<double>::SortEigenValuesAndVectors(eigVectors, eigValues); //decreasing order of their associated eigenvalues
 
 				double totalVariance = 0;
 				CCVector3d sValues(0, 0, 0);
@@ -225,7 +230,7 @@ public:
 					// contrarily to Brodu's version, here we get directly the eigenvalues!
 					for (unsigned j = 0; j < 3; ++j)
 					{
-						sValues.u[j] = eigValues(j);
+						sValues.u[j] = eigValues[j];
 						totalVariance += sValues.u[j];
 					}
 				}
@@ -236,10 +241,10 @@ public:
 				// Formula on wikipedia page for barycentric coordinates
 				// using directly the triangle in %variance space, they simplify a lot
 				double a = std::min<double>(1.0, std::max<double>(0.0, sValues.x - sValues.y));
-				double b = std::min<double>(1.0, std::max<double>(0.0, 2*sValues.x + 4*sValues.y - 2.0));
+				double b = std::min<double>(1.0, std::max<double>(0.0, 2 * sValues.x + 4 * sValues.y - 2.0));
 				double c = 1.0 - a - b;
 				// see original Brodu's code for this transformation
-				params[0] = static_cast<float>(b + c/2);
+				params[0] = static_cast<float>(b + c / 2);
 				params[1] = static_cast<float>(c * SQRT_3_DIV_2);
 
 				//save parameters for next scale
@@ -263,8 +268,6 @@ public:
 			params[1] = m_defaultParams[1];
 			params[2] = m_defaultParams[2];
 		}
-
-		return true;
 	}
 
 protected:
@@ -284,23 +287,23 @@ public:
 	CurvatureScaleParamsComputer() : m_firstScale(true) {}
 
 	//inherited from ScaleParamsComputer
-	virtual unsigned getID() const { return DESC_CURVATURE; }
+	unsigned getID() const override { return DESC_CURVATURE; }
 
 	//inherited from ScaleParamsComputer
-	virtual QString getName() const { return "Gaussian curvature"; }
+	QString getName() const override { return "Gaussian curvature"; }
 
 	//inherited from ScaleParamsComputer
-	virtual unsigned dimPerScale() const { return 1; }
+	unsigned dimPerScale() const override { return 1; }
 
 	//inherited from ScaleParamsComputer
-	virtual void reset()
+	void reset() override
 	{
 		m_defaultParams[0] = 0;
 		m_firstScale = true;
 	}
 
 	//inherited from ScaleParamsComputer
-	virtual bool computeScaleParams(CCCoreLib::ReferenceCloud& neighbors, double radius, float params[], bool& invalidScale)
+	void computeScaleParams(CCCoreLib::ReferenceCloud& neighbors, double radius, float params[], bool& invalidScale) override
 	{
 		//Curvature
 		if (neighbors.size() >= 6)
@@ -317,8 +320,6 @@ public:
 			invalidScale = true;
 			params[0] = m_defaultParams[0];
 		}
-
-		return true;
 	}
 
 protected:
@@ -338,16 +339,16 @@ public:
 	CustomScaleParamsComputer() : m_firstScale(true) {}
 
 	//inherited from ScaleParamsComputer
-	virtual unsigned getID() const { return DESC_CUSTOM; }
+	unsigned getID() const override { return DESC_CUSTOM; }
 
 	//inherited from ScaleParamsComputer
-	virtual QString getName() const { return "Custom"; }
+	QString getName() const override { return "Custom"; }
 
 	//inherited from ScaleParamsComputer
-	virtual unsigned dimPerScale() const { return 1; }
+	unsigned dimPerScale() const override { return 1; }
 
 	//inherited from ScaleParamsComputer
-	virtual void reset()
+	void reset() override
 	{
 		//FIXME
 		m_defaultParams[0] = 0;
@@ -355,7 +356,7 @@ public:
 	}
 
 	//inherited from ScaleParamsComputer
-	virtual bool computeScaleParams(CCCoreLib::ReferenceCloud& neighbors, double radius, float params[], bool& invalidScale)
+	void computeScaleParams(CCCoreLib::ReferenceCloud& neighbors, double radius, float params[], bool& invalidScale) override
 	{
 		//Curvature
 		if (neighbors.size() >= ?)
@@ -375,8 +376,6 @@ public:
 			params[1] = m_defaultParams[1];
 			...
 		}
-
-		return true;
 	}
 
 protected:
@@ -460,7 +459,7 @@ ScaleParamsComputer* ScaleParamsComputer::GetByID(unsigned descID)
 ScaleParamsComputer* ScaleParamsComputer::GetByIndex(unsigned index)
 {
 	QMap<unsigned, ScaleParamsComputer*>::Iterator it = s_vault.map.begin();
-	for (unsigned i=0; i<index; ++i)
+	for (unsigned i = 0; i < index; ++i)
 	{
 		++it;
 		assert(it != s_vault.map.end());
@@ -478,53 +477,61 @@ QByteArray CorePointDescSet::toByteArray() const
 
 	int totalSize = 4 * sizeof(int) /*header*/ + (scaleCount + descCount * scaleCount * m_dimPerScale) * sizeof(float) /*data*/;
 
-	QByteArray data(totalSize, Qt::Uninitialized);
-	
-	if (data.capacity() < totalSize) //not enough memory?
-		return data;
-
-	char* buffer = data.data();
-
-	//header
-	*reinterpret_cast<int*>(buffer) = scaleCount;
-	buffer += sizeof(int);
-	*reinterpret_cast<int*>(buffer) = descCount;
-	buffer += sizeof(int);
-	*reinterpret_cast<int*>(buffer) = static_cast<int>(m_descriptorID);
-	buffer += sizeof(int);
-	*reinterpret_cast<int*>(buffer) = static_cast<int>(m_dimPerScale);
-	buffer += sizeof(int);
-
-	//scales
+	try
 	{
-		for (int i=0; i<scaleCount; ++i)
-		{
-			*reinterpret_cast<float*>(buffer) = m_scales[i];
-			buffer += sizeof(float);
-		}
-	}
+		QByteArray data(totalSize, Qt::Uninitialized);
 
-	//descriptors
-	{
-		for (int j=0; j<descCount; ++j)
+		if (data.capacity() < totalSize) //not enough memory?
+			return {};
+
+		char* buffer = data.data();
+
+		//header
+		*reinterpret_cast<int*>(buffer) = scaleCount;
+		buffer += sizeof(int);
+		*reinterpret_cast<int*>(buffer) = descCount;
+		buffer += sizeof(int);
+		*reinterpret_cast<int*>(buffer) = static_cast<int>(m_descriptorID);
+		buffer += sizeof(int);
+		*reinterpret_cast<int*>(buffer) = static_cast<int>(m_dimPerScale);
+		buffer += sizeof(int);
+
+		//scales
 		{
-			const CorePointDesc& desc = at(j);
-			assert(desc.params.size() == scaleCount * m_dimPerScale);
-			for (size_t i=0; i<desc.params.size(); ++i)
+			for (int i = 0; i < scaleCount; ++i)
 			{
-				*reinterpret_cast<float*>(buffer) = desc.params[i];
+				*reinterpret_cast<float*>(buffer) = m_scales[i];
 				buffer += sizeof(float);
 			}
 		}
-	}
 
-	//first scales
-	return data;
+		//descriptors
+		{
+			for (int j = 0; j < descCount; ++j)
+			{
+				const CorePointDesc& desc = at(j);
+				assert(desc.params.size() == static_cast<size_t>(scaleCount) * m_dimPerScale);
+				for (size_t i = 0; i < desc.params.size(); ++i)
+				{
+					*reinterpret_cast<float*>(buffer) = desc.params[i];
+					buffer += sizeof(float);
+				}
+			}
+		}
+
+		//first scales
+		return data;
+	}
+	catch (const std::bad_alloc&)
+	{
+		ccLog::Warning("Not enough memory to convert the core point descriptors to a QByteArray");
+		return {};
+	}
 }
 
 bool CorePointDescSet::fromByteArray(const QByteArray& data)
 {
-	if (data.size() < 2*sizeof(int))
+	if (data.size() < 2 * sizeof(int))
 		return false;
 
 	const char* buffer = data.data();
@@ -568,7 +575,7 @@ bool CorePointDescSet::fromByteArray(const QByteArray& data)
 
 	//scales
 	{
-		for (int i=0; i<scaleCount; ++i)
+		for (int i = 0; i < scaleCount; ++i)
 		{
 			scales[i] = *reinterpret_cast<const float*>(buffer);
 			buffer += sizeof(float);
@@ -581,11 +588,11 @@ bool CorePointDescSet::fromByteArray(const QByteArray& data)
 
 	//descriptors
 	{
-		for (int j=0; j<descCount; ++j)
+		for (int j = 0; j < descCount; ++j)
 		{
 			CorePointDesc& desc = at(j);
-			assert(desc.params.size() == scaleCount * m_dimPerScale);
-			for (size_t i=0; i<scaleCount*m_dimPerScale; ++i)
+			assert(desc.params.size() == static_cast<size_t>(scaleCount) * m_dimPerScale);
+			for (size_t i = 0; i < static_cast<size_t>(scaleCount)*m_dimPerScale; ++i)
 			{
 				desc.params[i] = *reinterpret_cast<const float*>(buffer);
 				buffer += sizeof(float);
@@ -612,10 +619,12 @@ bool CorePointDescSet::setScales(const std::vector<float>& scales)
 	{
 		m_scales = scales;
 		size_t scaleCount = m_scales.size();
-		
-		size_t paramPerDesc = scaleCount*m_dimPerScale;
-		for (size_t i=0; i<size(); ++i)
+
+		size_t paramPerDesc = scaleCount * m_dimPerScale;
+		for (size_t i = 0; i < size(); ++i)
+		{
 			at(i).params.resize(paramPerDesc);
+		}
 	}
 	catch (const std::bad_alloc&)
 	{
@@ -626,11 +635,11 @@ bool CorePointDescSet::setScales(const std::vector<float>& scales)
 }
 
 
-bool CorePointDescSet::loadFromMSC(QString filename, QString& error, ccPointCloud* corePoints/*=0*/)
+bool CorePointDescSet::loadFromMSC(QString filename, QString& error, ccPointCloud* corePoints/*=nullptr*/)
 {
 	error.clear();
 
-	std::ifstream mscfile(qPrintable(filename), std::ifstream::binary); //DGM: warning, toStdString doesn't preserve "local" characters
+	std::ifstream mscfile(qUtf8Printable(filename), std::ifstream::binary); //DGM: warning, toStdString doesn't preserve "local" characters
 
 	if (!mscfile.is_open())
 	{
@@ -640,7 +649,7 @@ bool CorePointDescSet::loadFromMSC(QString filename, QString& error, ccPointClou
 
 	// read the file header
 	int ncorepoints;
-	mscfile.read((char*)&ncorepoints,sizeof(ncorepoints));
+	mscfile.read((char*)&ncorepoints, sizeof(ncorepoints));
 	int nscales_msc;
 	mscfile.read((char*)&nscales_msc, sizeof(int));
 
@@ -657,7 +666,7 @@ bool CorePointDescSet::loadFromMSC(QString filename, QString& error, ccPointClou
 		catch (const std::bad_alloc&)
 		{
 			//not enough memory
-			error = "Not enough memory";
+			error = "Not enough memory to load core points";
 			return false;
 		}
 
@@ -679,16 +688,16 @@ bool CorePointDescSet::loadFromMSC(QString filename, QString& error, ccPointClou
 		catch (const std::bad_alloc&)
 		{
 			//not enough memory
-			error = "Not enough memory";
+			error = "Not enough memory to load scales";
 			return false;
 		}
 
-		for (int si=0; si<nscales_msc; ++si)
+		for (int si = 0; si < nscales_msc; ++si)
 			mscfile.read((char*)&scales[si], sizeof(float));
-		
+
 		if (!setScales(scales)) //automatically resize the descriptors 'params' structure
 		{
-			error = "Not enough memory";
+			error = "Not enough memory to load scales";
 			return false;
 		}
 	}
@@ -698,13 +707,13 @@ bool CorePointDescSet::loadFromMSC(QString filename, QString& error, ccPointClou
 	int ptnparams;
 	mscfile.read((char*)&ptnparams, sizeof(int));
 
-	std::vector<CCCoreLib::ScalarField*> paramsSf(3,nullptr);
+	std::vector<CCCoreLib::ScalarField::Shared> paramsSf(3, nullptr);
 	if (corePoints)
 	{
 		//above 3, ptnparams contains additional scalars
-		for (int i=3; i<ptnparams; ++i)
+		for (int i = 3; i < ptnparams; ++i)
 		{
-			int sfIdx = corePoints->addScalarField(qPrintable(QString("scalar #%1").arg(i-2)));
+			int sfIdx = corePoints->addScalarField(QString("scalar #%1").arg(i - 2).toStdString());
 			paramsSf.push_back(sfIdx >= 0 ? corePoints->getScalarField(sfIdx) : nullptr);
 
 			if (sfIdx < 0)
@@ -716,7 +725,7 @@ bool CorePointDescSet::loadFromMSC(QString filename, QString& error, ccPointClou
 	}
 
 	//vector<float> avg_ndist_max_scale(ncorepoints);
-	for (int pt=0; pt<ncorepoints; ++pt)
+	for (int pt = 0; pt < ncorepoints; ++pt)
 	{
 		float x = 0.0f;
 		float y = 0.0f;
@@ -725,40 +734,44 @@ bool CorePointDescSet::loadFromMSC(QString filename, QString& error, ccPointClou
 		mscfile.read((char*)&y, sizeof(float));
 		mscfile.read((char*)&z, sizeof(float));
 		if (corePoints)
-			corePoints->addPoint(CCVector3(x,y,z));
-		if (ptnparams>=4)
+		{
+			corePoints->addPoint(CCVector3(x, y, z));
+		}
+		if (ptnparams >= 4)
 		{
 			float dummy;
 			mscfile.read((char*)&dummy, sizeof(float)); //already ignored in Brodu's code...
 
-			for (int i=4; i<ptnparams; ++i)
+			for (int i = 4; i < ptnparams; ++i)
 			{
 				float param;
 				mscfile.read((char*)&param, sizeof(float));
-			
+
 				if (static_cast<int>(paramsSf.size()) > i)
+				{
 					paramsSf[i]->addElement(static_cast<ScalarType>(param));
+				}
 			}
 		}
 
-		for (int s=0; s<nscales_msc; ++s)
+		for (int s = 0; s < nscales_msc; ++s)
 		{
 			float a = 0.0f;
 			float b = 0.0f;
 			mscfile.read((char*)(&a), sizeof(float));
 			mscfile.read((char*)(&b), sizeof(float));
-			
+
 			// see original Brodu's code for this transformation
 			float c = 1.0f - a - b;
-			float x = b + c/2;
-			float y = c * sqrt(3.0f)/2;
-			at(pt).params[s*2  ] = x;
-			at(pt).params[s*2+1] = y;
+			float x = b + c / 2;
+			float y = c * sqrt(3.0f) / 2;
+			at(pt).params[s * 2] = x;
+			at(pt).params[s * 2 + 1] = y;
 		}
 		// we don't care for number of neighbors at max and min scales
 		{
 			int dummyInt;
-			for (int i=0; i<nscales_msc; ++i)
+			for (int i = 0; i < nscales_msc; ++i)
 				mscfile.read((char*)&dummyInt, sizeof(int));
 		}
 	}
@@ -769,7 +782,7 @@ bool CorePointDescSet::loadFromMSC(QString filename, QString& error, ccPointClou
 	if (corePoints)
 	{
 		bool first = true;
-		for (size_t i=3; i<paramsSf.size(); ++i)
+		for (size_t i = 3; i < paramsSf.size(); ++i)
 		{
 			if (paramsSf[i])
 			{

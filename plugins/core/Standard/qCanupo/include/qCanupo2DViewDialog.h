@@ -27,7 +27,7 @@
 #include <CCGeom.h>
 
 class ccMainAppInterface;
-class ccGLWindow;
+class ccGLWindowInterface;
 class ccHObject;
 class ccPointCloud;
 class ccPolyline;
@@ -46,8 +46,8 @@ public:
 						QString cloud2Name,
 						int class1 = 1,
 						int class2 = 2,
-						const CorePointDescSet* evaluationDescriptors = 0,
-						ccMainAppInterface* app = 0);
+						const CorePointDescSet* evaluationDescriptors = nullptr,
+						ccMainAppInterface* app = nullptr);
 
 	//! Destructor
 	virtual ~qCanupo2DViewDialog();
@@ -110,7 +110,7 @@ protected:
 	ccMainAppInterface* m_app;
 
 	//! Associated GL window
-	ccGLWindow* m_glWindow;
+	ccGLWindowInterface* m_glWindow;
 
 	//! Associated classifier
 	Classifier m_classifier;

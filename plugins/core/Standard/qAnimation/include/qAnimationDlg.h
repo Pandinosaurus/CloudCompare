@@ -17,6 +17,9 @@
 //#                                                                        #
 //##########################################################################
 
+//Local
+#include "ExtendedViewport.h"
+
 //qCC_db
 #include <ccViewportParameters.h>
 
@@ -28,7 +31,7 @@
 
 #include "ui_animationDlg.h"
 
-class ccGLWindow;
+class ccGLWindowInterface;
 class ccPolyline;
 class cc2DViewportObject;
 class QListWidgetItem;
@@ -41,13 +44,13 @@ class qAnimationDlg : public QDialog, public Ui::AnimationDialog
 public:
 
 	//! Default constructor
-	qAnimationDlg(ccGLWindow* view3d,  QWidget* parent = nullptr);
+	qAnimationDlg(ccGLWindowInterface* view3d,  QWidget* parent = nullptr);
 
 	//! Destrcuctor
 	virtual ~qAnimationDlg();
 
 	//! Initialize the dialog with a set of viewports
-	bool init(const std::vector<cc2DViewportObject*>& viewports);
+	bool init(const std::vector<ExtendedViewport>& viewports);
 
 	ccPolyline* getTrajectory();
 	bool exportTrajectoryOnExit();
@@ -63,6 +66,7 @@ protected:
 	void onAutoStepsDurationToggled(bool);
 	void onSmoothTrajectoryToggled(bool);
 	void onSmoothRatioChanged(double);
+	void onCodecChanged(int);
 
 	void preview();
 	void renderAnimation() { render(false); }
@@ -81,7 +85,7 @@ protected: //methods
 
 	int countFrames(size_t startIndex = 0);
 
-	void applyViewport(const ccViewportParameters& viewportParameters);
+	void applyViewport(const ExtendedViewportParameters& viewportParameters);
 
 	double computeTotalTime();
 
@@ -97,10 +101,10 @@ protected: //methods
 	bool smoothTrajectory(double ratio, unsigned iterationCount);
 
 	//! Simple step (viewport + time)
-	struct Step
+	struct Step : public ExtendedViewportParameters
 	{
 		cc2DViewportObject* viewport = nullptr;
-		ccViewportParameters viewportParams;
+
 		int indexInOriginalTrajectory = -1;
 		CCVector3d cameraCenter;
 
@@ -123,5 +127,8 @@ protected: //members
 	Trajectory m_smoothVideoSteps;
 
 	//! Associated 3D view
-	ccGLWindow* m_view3d;
+	ccGLWindowInterface* m_view3d;
+
+	//! Map of the codecs short names Vs extensions
+	QMap<QString, QString> m_codecNamesAndExtensions;
 };

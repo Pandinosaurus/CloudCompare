@@ -1,3 +1,5 @@
+#pragma once
+
 //#######################################################################################
 //#                                                                                     #
 //#                              CLOUDCOMPARE PLUGIN: qCSF                              #
@@ -16,7 +18,7 @@
 //#  Zhang W, Qi J, Wan P, Wang H, Xie D, Wang X, Yan G. An Easy-to-Use Airborne LiDAR  #
 //#  Data Filtering Method Based on Cloth Simulation. Remote Sensing. 2016; 8(6):501.   #
 //#                                                                                     #
-//#                                     Copyright ©                                     #
+//#                                     Copyright (c)                                   #
 //#               RAMM laboratory, School of Geography, Beijing Normal University       #
 //#                               (http://ramm.bnu.edu.cn/)                             #
 //#                                                                                     #
@@ -25,9 +27,6 @@
 //#                      contact us: 2009zwm@gmail.com; wpqjbzwm@126.com                #
 //#                                                                                     #
 //#######################################################################################
-
-#ifndef WL_PCL_POINT_CLOUD_H_
-#define WL_PCL_POINT_CLOUD_H_
 
 //system
 #include <vector>
@@ -53,11 +52,12 @@ namespace wl
 		{}
 	};
 
-	class PointCloud : public std::vector < Point >
+	//! Point cloud
+	class PointCloud : public std::vector<Point>
 	{
 	public:
 		
-		void computeBoundingBox(Point& bbMin, Point& bbMax)
+		void computeBoundingBox(Point& bbMin, Point& bbMax) const
 		{
 			if (empty())
 			{
@@ -66,9 +66,8 @@ namespace wl
 			}
 
 			bbMin = bbMax = at(0);
-			for (std::size_t i = 1; i < size(); i++)
+			for (const wl::Point& P : *this)
 			{
-				const wl::Point& P = at(i);
 				for (int d = 0; d < 3; ++d)
 				{
 					if (P.u[d] < bbMin.u[d])
@@ -84,5 +83,3 @@ namespace wl
 		}
 	};
 }
-
-#endif //WL_POINT_CLOUD_H_

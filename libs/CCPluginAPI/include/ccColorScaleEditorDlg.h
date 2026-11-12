@@ -1,27 +1,28 @@
 #pragma once
-//##########################################################################
-//#                                                                        #
-//#                              CLOUDCOMPARE                              #
-//#                                                                        #
-//#  This program is free software; you can redistribute it and/or modify  #
-//#  it under the terms of the GNU General Public License as published by  #
-//#  the Free Software Foundation; version 2 or later of the License.      #
-//#                                                                        #
-//#  This program is distributed in the hope that it will be useful,       #
-//#  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
-//#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
-//#  GNU General Public License for more details.                          #
-//#                                                                        #
-//#          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
-//#                                                                        #
-//##########################################################################
+// ##########################################################################
+// #                                                                        #
+// #                              CLOUDCOMPARE                              #
+// #                                                                        #
+// #  This program is free software; you can redistribute it and/or modify  #
+// #  it under the terms of the GNU General Public License as published by  #
+// #  the Free Software Foundation; version 2 or later of the License.      #
+// #                                                                        #
+// #  This program is distributed in the hope that it will be useful,       #
+// #  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
+// #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
+// #  GNU General Public License for more details.                          #
+// #                                                                        #
+// #          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
+// #                                                                        #
+// ##########################################################################
 
+// Local
 #include "CCPluginAPI.h"
 
-//qCC_db
+// qCC_db
 #include <ccColorScale.h>
 
-//Qt
+// Qt
 #include <QDialog>
 
 class ccScalarField;
@@ -31,7 +32,7 @@ class ccMainAppInterface;
 
 namespace Ui
 {
-	class ColorScaleEditorDlg;	
+	class ColorScaleEditorDlg;
 }
 
 //! Dialog to edit/create color scales
@@ -39,13 +40,12 @@ class CCPLUGIN_LIB_API ccColorScaleEditorDialog : public QDialog
 {
 	Q_OBJECT
 
-public:
-
+  public:
 	//! Default constructor
-	ccColorScaleEditorDialog(	ccColorScalesManager* manager,
-								ccMainAppInterface* mainApp,
-								ccColorScale::Shared currentScale = ccColorScale::Shared(nullptr),
-								QWidget* parent = nullptr);
+	ccColorScaleEditorDialog(ccColorScalesManager* manager,
+	                         ccMainAppInterface*   mainApp,
+	                         ccColorScale::Shared  currentScale = ccColorScale::Shared(nullptr),
+	                         QWidget*              parent       = nullptr);
 
 	//! Destructor
 	~ccColorScaleEditorDialog() override;
@@ -57,10 +57,12 @@ public:
 	void setActiveScale(ccColorScale::Shared currentScale);
 
 	//! Returns active scale
-	ccColorScale::Shared getActiveScale() { return m_colorScale; }
+	ccColorScale::Shared getActiveScale()
+	{
+		return m_colorScale;
+	}
 
-protected:
-
+  protected:
 	void colorScaleChanged(int);
 	void relativeModeChanged(int);
 
@@ -90,8 +92,7 @@ protected:
 	void onApply();
 	void onClose();
 
-protected:
-
+  protected:
 	//! Updates main combox box with color scales manager
 	void updateMainComboBox();
 
@@ -100,18 +101,18 @@ protected:
 
 	//! If the current scale has been modified, ask the user what to do
 	/** \return whether user allows the change or not
-	**/
+	 **/
 	bool canChangeCurrentScale();
 
 	//! Returns whether current edited scale is 'relative' (true) or 'absolute' (false)
 	/** Warning: may not be the same state as the current scale (m_colorScale)
-		If current modifications have not been saved yet!
+	    If current modifications have not been saved yet!
 	**/
 	bool isRelativeMode() const;
 
 	//! Sets current mode for active scale between 'relative' (true) or 'absolute' (false)
 	/** Warning: may not be the same state as the current scale (m_colorScale)
-		If current modifications have not been saved yet!
+	    If current modifications have not been saved yet!
 	**/
 	void setScaleModeToRelative(bool isRelative);
 
@@ -119,7 +120,9 @@ protected:
 	bool checkCustomLabelsList(bool showWarnings);
 
 	//! Exports the custom labels list
-	bool exportCustomLabelsList(ccColorScale::LabelSet& labels);
+	/** \return Error description (if any)
+	 **/
+	QString exportCustomLabelsList(ccColorScale::LabelSet& labels) const;
 
 	//! Color scale manager
 	ccColorScalesManager* m_manager;
@@ -143,6 +146,6 @@ protected:
 
 	//! Associated application (interface)
 	ccMainAppInterface* m_mainApp;
-	
-	Ui::ColorScaleEditorDlg* m_ui;
+
+	std::unique_ptr<Ui::ColorScaleEditorDlg> m_ui;
 };

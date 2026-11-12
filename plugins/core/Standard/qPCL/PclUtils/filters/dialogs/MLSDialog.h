@@ -28,17 +28,14 @@ class MLSDialog : public QDialog, public Ui::MLSDialog
 	Q_OBJECT
 
 public:
-	explicit MLSDialog(QWidget *parent = 0);
+	explicit MLSDialog(QWidget* parent = nullptr);
 
 protected:
-	void activateMenu(QString name);
-	void toggleMethods(bool status);
+	void activateMenu(int index);
 	void updateSquaredGaussian(double radius);
 
 protected:
 	void updateCombo();
-	void deactivateAllMethods();
-
 };
 
 #endif // MLSDIALOG_H

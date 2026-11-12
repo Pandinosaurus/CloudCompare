@@ -245,16 +245,6 @@
      <item row="12" column="1">
       <widget class="QComboBox" name="textCoordsComboBox"/>
      </item>
-     <item row="14" column="1">
-      <widget class="QComboBox" name="sfComboBox"/>
-     </item>
-     <item row="14" column="0">
-      <widget class="QLabel" name="label_11">
-       <property name="text">
-        <string>Scalar</string>
-       </property>
-      </widget>
-     </item>
      <item row="13" column="0">
       <widget class="QLabel" name="label_17">
        <property name="text">
@@ -268,10 +258,52 @@
     </layout>
    </item>
    <item>
-    <widget class="QToolButton" name="addSFToolButton">
-     <property name="text">
-      <string>Add Scalar field</string>
+    <widget class="QGroupBox" name="groupBox">
+     <property name="title">
+      <string>Scalar fields</string>
      </property>
+     <layout class="QVBoxLayout" name="verticalLayout_2">
+      <item>
+       <widget class="QListWidget" name="scalarFields"/>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout">
+        <item>
+         <widget class="QToolButton" name="addSFToolButton">
+          <property name="toolTip">
+           <string>Add a single standard property to be loaded as a Scalar Field</string>
+          </property>
+          <property name="text">
+           <string>Add</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QToolButton" name="addAllSFToolButton">
+          <property name="toolTip">
+           <string>Add all unused standard properties to be loaded as Scalar Fields</string>
+          </property>
+          <property name="text">
+           <string>Add all</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="horizontalSpacer">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+     </layout>
     </widget>
    </item>
    <item>

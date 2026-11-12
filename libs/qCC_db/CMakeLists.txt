@@ -8,11 +8,14 @@ add_subdirectory( src )
 add_subdirectory( extern/CCCoreLib EXCLUDE_FROM_ALL )
 
 target_link_libraries( ${PROJECT_NAME}
-    CCCoreLib
-    CC_FBO_LIB
+	PUBLIC
+    	CCCoreLib
+		Qt6::Widgets
+		Qt6::OpenGL
+		CC_FBO_LIB
 )
 
-target_compile_definitions( ${PROJECT_NAME} PRIVATE QCC_DB_LIBRARY_BUILD )
+target_compile_definitions( ${PROJECT_NAME} PRIVATE QCC_DB_LIBRARY_BUILD QT_NO_KEYWORDS )
 
 set_target_properties( ${PROJECT_NAME} PROPERTIES
 	CXX_VISIBILITY_PRESET hidden

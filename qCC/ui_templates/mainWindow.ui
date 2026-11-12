@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1024</width>
-    <height>768</height>
+    <width>1028</width>
+    <height>777</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -17,7 +17,7 @@
    </sizepolicy>
   </property>
   <property name="focusPolicy">
-   <enum>Qt::ClickFocus</enum>
+   <enum>Qt::FocusPolicy::ClickFocus</enum>
   </property>
   <property name="acceptDrops">
    <bool>false</bool>
@@ -38,8 +38,8 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1024</width>
-     <height>21</height>
+     <width>1028</width>
+     <height>33</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -48,7 +48,9 @@
     </property>
     <addaction name="actionOpen"/>
     <addaction name="actionSave"/>
+    <addaction name="actionSaveProject"/>
     <addaction name="actionGlobalShiftSettings"/>
+    <addaction name="actionShortcutSettings"/>
     <addaction name="separator"/>
     <addaction name="actionPrimitiveFactory"/>
     <addaction name="separator"/>
@@ -78,6 +80,7 @@
      </property>
      <addaction name="actionToggleSunLight"/>
      <addaction name="actionToggleCustomLight"/>
+     <addaction name="actionSetCustomLightPosition"/>
     </widget>
     <widget class="QMenu" name="menuActiveScalarField">
      <property name="title">
@@ -97,16 +100,18 @@
     <addaction name="actionRefresh"/>
     <addaction name="actionToggleCenteredPerspective"/>
     <addaction name="actionToggleViewerBasedPerspective"/>
-    <addaction name="actionShowCursor3DCoordinates"/>
     <addaction name="actionLockRotationAxis"/>
+    <addaction name="actionShowCursor3DCoordinates"/>
     <addaction name="actionEnterBubbleViewMode"/>
     <addaction name="actionEnableCameraLink"/>
     <addaction name="separator"/>
     <addaction name="actionRenderToFile"/>
-    <addaction name="actionDisplayOptions"/>
+    <addaction name="actionDisplaySettings"/>
     <addaction name="actionEditCamera"/>
+    <addaction name="actionToggleClippingPlanes"/>
     <addaction name="actionSaveViewportAsObject"/>
     <addaction name="actionAdjustZoom"/>
+    <addaction name="actionViewInformation"/>
     <addaction name="actionTestFrameRate"/>
     <addaction name="separator"/>
     <addaction name="menuLights"/>
@@ -116,6 +121,7 @@
     <addaction name="menuToolbars"/>
     <addaction name="menuLanguage"/>
     <addaction name="actionResetGUIElementsPos"/>
+    <addaction name="actionRestoreWindowOnStartup"/>
     <addaction name="actionResetAllVBOs"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
@@ -136,6 +142,8 @@
      <property name="title">
       <string>Scalar fields</string>
      </property>
+     <addaction name="actionOpenSFManager"/>
+     <addaction name="separator"/>
      <addaction name="actionShowHistogram"/>
      <addaction name="actionComputeStatParams"/>
      <addaction name="separator"/>
@@ -148,11 +156,14 @@
      <addaction name="actionRenameSF"/>
      <addaction name="separator"/>
      <addaction name="actionAddConstantSF"/>
+     <addaction name="actionAddClassificationSF"/>
      <addaction name="actionAddIdField"/>
      <addaction name="actionExportCoordToSF"/>
-     <addaction name="actionExportNormalToSF"/>
      <addaction name="actionSetSFAsCoord"/>
+     <addaction name="actionExportNormalToSF"/>
+     <addaction name="actionSetSFsAsNormal"/>
      <addaction name="actionInterpolateSFs"/>
+     <addaction name="actionSplitCloudUsingSF"/>
      <addaction name="actionScalarFieldArithmetic"/>
      <addaction name="separator"/>
      <addaction name="actionOpenColorScalesManager"/>
@@ -174,6 +185,10 @@
      <addaction name="actionScalarFieldFromColor"/>
      <addaction name="actionInterpolateColors"/>
      <addaction name="actionEnhanceRGBWithIntensities"/>
+     <addaction name="actionRGBBilateralFilter"/>
+     <addaction name="actionRGBGaussianFilter"/>
+     <addaction name="actionRGBMeanFilter"/>
+     <addaction name="actionRGBMedianFilter"/>
      <addaction name="separator"/>
      <addaction name="actionClearColor"/>
     </widget>
@@ -199,7 +214,11 @@
      <addaction name="actionInvertNormals"/>
      <addaction name="menuOrientNormals"/>
      <addaction name="menuConvert_to"/>
+     <addaction name="separator"/>
      <addaction name="actionExportNormalToSF"/>
+     <addaction name="actionSetSFsAsNormal"/>
+     <addaction name="separator"/>
+     <addaction name="actionShiftPointsAlongNormals"/>
      <addaction name="separator"/>
      <addaction name="actionClearNormals"/>
     </widget>
@@ -324,6 +343,7 @@
      </property>
      <addaction name="actionSamplePointsOnPolyline"/>
      <addaction name="actionSmoothPolyline"/>
+     <addaction name="actionExtrudePolyline"/>
     </widget>
     <widget class="QMenu" name="menuCloud">
      <property name="title">
@@ -331,6 +351,12 @@
      </property>
      <addaction name="actionCreateSinglePointCloud"/>
      <addaction name="actionPasteCloudFromClipboard"/>
+    </widget>
+    <widget class="QMenu" name="menuCircle">
+     <property name="title">
+      <string>Circle</string>
+     </property>
+     <addaction name="actionPromoteCircleToCylinder"/>
     </widget>
     <addaction name="menuColors"/>
     <addaction name="menuNormals"/>
@@ -340,6 +366,7 @@
     <addaction name="menuMesh"/>
     <addaction name="menuPolyline"/>
     <addaction name="menuPlane"/>
+    <addaction name="menuCircle"/>
     <addaction name="menuSensors"/>
     <addaction name="menuScalarFields"/>
     <addaction name="menuWaveform"/>
@@ -356,6 +383,7 @@
     <addaction name="separator"/>
     <addaction name="actionEditGlobalShiftAndScale"/>
     <addaction name="separator"/>
+    <addaction name="actionSelectDisplayedEntities"/>
     <addaction name="menuToggle"/>
     <addaction name="separator"/>
     <addaction name="actionDelete"/>
@@ -386,6 +414,7 @@
      <property name="title">
       <string>Segmentation</string>
      </property>
+     <addaction name="actionCutPursuit"/>
      <addaction name="actionLabelConnectedComponents"/>
      <addaction name="actionCrossSection"/>
      <addaction name="actionExtractSections"/>
@@ -468,6 +497,7 @@
      </property>
      <addaction name="actionFitPlane"/>
      <addaction name="actionFitSphere"/>
+     <addaction name="actionFitCircle"/>
      <addaction name="actionFitFacet"/>
      <addaction name="actionFitQuadric"/>
     </widget>
@@ -528,7 +558,7 @@
     <bool>false</bool>
    </property>
    <property name="features">
-    <set>QDockWidget::DockWidgetFloatable|QDockWidget::DockWidgetMovable</set>
+    <set>QDockWidget::DockWidgetFeature::DockWidgetFloatable|QDockWidget::DockWidgetFeature::DockWidgetMovable</set>
    </property>
    <property name="windowTitle">
     <string>DB Tree</string>
@@ -569,10 +599,10 @@ QTreeView::branch:open:has-children:has-siblings  {
         <bool>true</bool>
        </property>
        <property name="dragDropMode">
-        <enum>QAbstractItemView::InternalMove</enum>
+        <enum>QAbstractItemView::DragDropMode::InternalMove</enum>
        </property>
        <property name="selectionMode">
-        <enum>QAbstractItemView::ExtendedSelection</enum>
+        <enum>QAbstractItemView::SelectionMode::ExtendedSelection</enum>
        </property>
        <property name="uniformRowHeights">
         <bool>true</bool>
@@ -596,12 +626,12 @@ QTreeView::branch:open:has-children:has-siblings  {
    <attribute name="toolBarBreak">
     <bool>false</bool>
    </attribute>
-   <addaction name="actionDisplayOptions"/>
+   <addaction name="actionDisplaySettings"/>
    <addaction name="actionEditCamera"/>
    <addaction name="actionGlobalZoom"/>
+   <addaction name="actionLockView3DRotationAxis"/>
    <addaction name="actionPickRotationCenter"/>
    <addaction name="actionAutoPickRotationCenter"/>
-   <addaction name="actionLevel"/>
    <addaction name="actionZoomAndCenter"/>
    <addaction name="actionSetViewTop"/>
    <addaction name="actionSetViewFront"/>
@@ -633,10 +663,10 @@ QTreeView::branch:open:has-children:has-siblings  {
     </size>
    </property>
    <property name="features">
-    <set>QDockWidget::DockWidgetClosable|QDockWidget::DockWidgetFloatable</set>
+    <set>QDockWidget::DockWidgetFeature::DockWidgetClosable|QDockWidget::DockWidgetFeature::DockWidgetFloatable</set>
    </property>
    <property name="allowedAreas">
-    <set>Qt::BottomDockWidgetArea</set>
+    <set>Qt::DockWidgetArea::BottomDockWidgetArea</set>
    </property>
    <property name="windowTitle">
     <string>Console</string>
@@ -661,7 +691,7 @@ QTreeView::branch:open:has-children:has-siblings  {
         </size>
        </property>
        <property name="editTriggers">
-        <set>QAbstractItemView::NoEditTriggers</set>
+        <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
        </property>
        <property name="showDropIndicator" stdset="0">
         <bool>false</bool>
@@ -670,7 +700,7 @@ QTreeView::branch:open:has-children:has-siblings  {
         <bool>true</bool>
        </property>
        <property name="selectionMode">
-        <enum>QAbstractItemView::ExtendedSelection</enum>
+        <enum>QAbstractItemView::SelectionMode::ExtendedSelection</enum>
        </property>
       </widget>
      </item>
@@ -692,6 +722,7 @@ QTreeView::branch:open:has-children:has-siblings  {
    </attribute>
    <addaction name="actionOpen"/>
    <addaction name="actionSave"/>
+   <addaction name="actionSaveProject"/>
    <addaction name="separator"/>
    <addaction name="actionPointPicking"/>
    <addaction name="actionPointListPicking"/>
@@ -707,6 +738,7 @@ QTreeView::branch:open:has-children:has-siblings  {
    <addaction name="actionCloudCloudDist"/>
    <addaction name="actionCloudMeshDist"/>
    <addaction name="actionCloudPrimitiveDist"/>
+   <addaction name="actionCutPursuit"/>
    <addaction name="actionLabelConnectedComponents"/>
    <addaction name="actionPrimitiveFactory"/>
    <addaction name="actionRasterize"/>
@@ -730,6 +762,7 @@ QTreeView::branch:open:has-children:has-siblings  {
    <attribute name="toolBarBreak">
     <bool>false</bool>
    </attribute>
+   <addaction name="actionOpenSFManager"/>
    <addaction name="actionShowHistogram"/>
    <addaction name="actionComputeStatParams"/>
    <addaction name="actionFilterByValue"/>
@@ -749,7 +782,7 @@ QTreeView::branch:open:has-children:has-siblings  {
     <bool>false</bool>
    </property>
    <property name="features">
-    <set>QDockWidget::DockWidgetFloatable|QDockWidget::DockWidgetMovable</set>
+    <set>QDockWidget::DockWidgetFeature::DockWidgetFloatable|QDockWidget::DockWidgetFeature::DockWidgetMovable</set>
    </property>
    <property name="windowTitle">
     <string>Properties</string>
@@ -762,7 +795,7 @@ QTreeView::branch:open:has-children:has-siblings  {
      <item>
       <widget class="QTreeView" name="propertiesTreeView">
        <property name="editTriggers">
-        <set>QAbstractItemView::NoEditTriggers</set>
+        <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
        </property>
        <property name="showDropIndicator" stdset="0">
         <bool>false</bool>
@@ -771,7 +804,7 @@ QTreeView::branch:open:has-children:has-siblings  {
         <bool>true</bool>
        </property>
        <property name="selectionMode">
-        <enum>QAbstractItemView::NoSelection</enum>
+        <enum>QAbstractItemView::SelectionMode::NoSelection</enum>
        </property>
        <property name="rootIsDecorated">
         <bool>false</bool>
@@ -801,8 +834,11 @@ QTreeView::branch:open:has-children:has-siblings  {
    <property name="text">
     <string>&amp;Open</string>
    </property>
+   <property name="toolTip">
+    <string>Open one or several files</string>
+   </property>
    <property name="statusTip">
-    <string>Open</string>
+    <string>Open one or several files</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+O</string>
@@ -816,6 +852,9 @@ QTreeView::branch:open:has-children:has-siblings  {
    <property name="text">
     <string>&amp;Save</string>
    </property>
+   <property name="toolTip">
+    <string>Save current entity</string>
+   </property>
    <property name="statusTip">
     <string>Save current entity</string>
    </property>
@@ -823,7 +862,7 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string>Ctrl+S</string>
    </property>
    <property name="shortcutContext">
-    <enum>Qt::ApplicationShortcut</enum>
+    <enum>Qt::ShortcutContext::ApplicationShortcut</enum>
    </property>
   </action>
   <action name="actionQuit">
@@ -855,10 +894,10 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string>F9</string>
    </property>
    <property name="shortcutContext">
-    <enum>Qt::ApplicationShortcut</enum>
+    <enum>Qt::ShortcutContext::ApplicationShortcut</enum>
    </property>
   </action>
-  <action name="actionDisplayOptions">
+  <action name="actionDisplaySettings">
    <property name="icon">
     <iconset resource="../icons.qrc">
      <normaloff>:/CC/images/monitor.svg</normaloff>:/CC/images/monitor.svg</iconset>
@@ -974,7 +1013,7 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string>F8</string>
    </property>
    <property name="shortcutContext">
-    <enum>Qt::ApplicationShortcut</enum>
+    <enum>Qt::ShortcutContext::ApplicationShortcut</enum>
    </property>
   </action>
   <action name="actionClose3DView">
@@ -1054,7 +1093,7 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string>Del</string>
    </property>
    <property name="shortcutContext">
-    <enum>Qt::ApplicationShortcut</enum>
+    <enum>Qt::ShortcutContext::ApplicationShortcut</enum>
    </property>
   </action>
   <action name="actionRegister">
@@ -1078,7 +1117,7 @@ QTreeView::branch:open:has-children:has-siblings  {
      <normaloff>:/CC/images/ccCloudCloudDistance.png</normaloff>:/CC/images/ccCloudCloudDistance.png</iconset>
    </property>
    <property name="text">
-    <string>Cloud/Cloud Dist.</string>
+    <string>Cloud/Cloud Dist</string>
    </property>
    <property name="toolTip">
     <string>Compute cloud/cloud distance</string>
@@ -1132,6 +1171,21 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string>Sample points on a mesh</string>
    </property>
   </action>
+  <action name="actionCutPursuit">
+   <property name="icon">
+    <iconset resource="../icons.qrc">
+     <normaloff>:/CC/images/ccCutPursuit.svg</normaloff>:/CC/images/ccCutPursuit.svg</iconset>
+   </property>
+   <property name="text">
+    <string>Cut Pursuit</string>
+   </property>
+   <property name="toolTip">
+    <string>Graph-based point cloud segmentation</string>
+   </property>
+   <property name="statusTip">
+    <string>Graph-based point cloud segmentation</string>
+   </property>
+  </action>
   <action name="actionLabelConnectedComponents">
    <property name="icon">
     <iconset resource="../icons.qrc">
@@ -1169,6 +1223,15 @@ QTreeView::branch:open:has-children:has-siblings  {
    </property>
    <property name="text">
     <string>Translate/Rotate</string>
+   </property>
+  </action>
+  <action name="actionOpenSFManager">
+   <property name="icon">
+    <iconset resource="../icons.qrc">
+     <normaloff>:/CC/images/ccSFManager.png</normaloff>:/CC/images/ccSFManager.png</iconset>
+   </property>
+   <property name="text">
+    <string>Scalar Fields Manager</string>
    </property>
   </action>
   <action name="actionShowHistogram">
@@ -1307,6 +1370,58 @@ QTreeView::branch:open:has-children:has-siblings  {
    </property>
    <property name="statusTip">
     <string>Clear colors</string>
+   </property>
+  </action>
+  <action name="actionRGBGaussianFilter">
+   <property name="icon">
+    <iconset resource="../icons.qrc">
+     <normaloff>:/CC/images/ccGaussianFilter.png</normaloff>:/CC/images/ccGaussianFilter.png</iconset>
+   </property>
+   <property name="text">
+    <string>Gaussian filter</string>
+   </property>
+   <property name="toolTip">
+    <string>Compute gaussian filter</string>
+   </property>
+   <property name="statusTip">
+    <string>Compute gaussian filter</string>
+   </property>
+  </action>
+  <action name="actionRGBBilateralFilter">
+   <property name="icon">
+    <iconset resource="../icons.qrc">
+     <normaloff>:/CC/images/ccBilateralFilter.png</normaloff>:/CC/images/ccBilateralFilter.png</iconset>
+   </property>
+   <property name="text">
+    <string>Bilateral filter</string>
+   </property>
+   <property name="toolTip">
+    <string>Compute bilateral filter</string>
+   </property>
+   <property name="statusTip">
+    <string>Compute bilateral filter</string>
+   </property>
+  </action>
+  <action name="actionRGBMeanFilter">
+   <property name="text">
+    <string>Mean filter</string>
+   </property>
+   <property name="toolTip">
+    <string>Compute mean filter</string>
+   </property>
+   <property name="statusTip">
+    <string>Compute mean filter</string>
+   </property>
+  </action>
+  <action name="actionRGBMedianFilter">
+   <property name="text">
+    <string>Median filter</string>
+   </property>
+   <property name="toolTip">
+    <string>Compute median filter</string>
+   </property>
+   <property name="statusTip">
+    <string>Compute median filter</string>
    </property>
   </action>
   <action name="actionClearNormals">
@@ -1510,7 +1625,7 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string notr="true">8</string>
    </property>
    <property name="shortcutContext">
-    <enum>Qt::ApplicationShortcut</enum>
+    <enum>Qt::ShortcutContext::ApplicationShortcut</enum>
    </property>
   </action>
   <action name="actionSetViewFront">
@@ -1531,7 +1646,7 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string notr="true">5</string>
    </property>
    <property name="shortcutContext">
-    <enum>Qt::ApplicationShortcut</enum>
+    <enum>Qt::ShortcutContext::ApplicationShortcut</enum>
    </property>
   </action>
   <action name="actionSetViewBack">
@@ -1552,7 +1667,7 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string notr="true">0</string>
    </property>
    <property name="shortcutContext">
-    <enum>Qt::ApplicationShortcut</enum>
+    <enum>Qt::ShortcutContext::ApplicationShortcut</enum>
    </property>
   </action>
   <action name="actionSetViewLeft">
@@ -1573,7 +1688,7 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string notr="true">4</string>
    </property>
    <property name="shortcutContext">
-    <enum>Qt::ApplicationShortcut</enum>
+    <enum>Qt::ShortcutContext::ApplicationShortcut</enum>
    </property>
   </action>
   <action name="actionSetViewRight">
@@ -1594,7 +1709,7 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string notr="true">6</string>
    </property>
    <property name="shortcutContext">
-    <enum>Qt::ApplicationShortcut</enum>
+    <enum>Qt::ShortcutContext::ApplicationShortcut</enum>
    </property>
   </action>
   <action name="actionSetViewBottom">
@@ -1615,7 +1730,7 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string notr="true">2</string>
    </property>
    <property name="shortcutContext">
-    <enum>Qt::ApplicationShortcut</enum>
+    <enum>Qt::ShortcutContext::ApplicationShortcut</enum>
    </property>
   </action>
   <action name="actionDisplayMainTools">
@@ -1683,7 +1798,7 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string>F6</string>
    </property>
    <property name="shortcutContext">
-    <enum>Qt::ApplicationShortcut</enum>
+    <enum>Qt::ShortcutContext::ApplicationShortcut</enum>
    </property>
   </action>
   <action name="actionToggleCustomLight">
@@ -1700,7 +1815,7 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string>F7</string>
    </property>
    <property name="shortcutContext">
-    <enum>Qt::ApplicationShortcut</enum>
+    <enum>Qt::ShortcutContext::ApplicationShortcut</enum>
    </property>
   </action>
   <action name="actionGlobalZoom">
@@ -1730,7 +1845,7 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string>F3</string>
    </property>
    <property name="shortcutContext">
-    <enum>Qt::ApplicationShortcut</enum>
+    <enum>Qt::ShortcutContext::ApplicationShortcut</enum>
    </property>
   </action>
   <action name="actionToggleViewerBasedPerspective">
@@ -1751,7 +1866,7 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string>F4</string>
    </property>
    <property name="shortcutContext">
-    <enum>Qt::ApplicationShortcut</enum>
+    <enum>Qt::ShortcutContext::ApplicationShortcut</enum>
    </property>
   </action>
   <action name="actionRefresh">
@@ -1766,7 +1881,7 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string>F5</string>
    </property>
    <property name="shortcutContext">
-    <enum>Qt::ApplicationShortcut</enum>
+    <enum>Qt::ShortcutContext::ApplicationShortcut</enum>
    </property>
   </action>
   <action name="actionTestFrameRate">
@@ -1965,7 +2080,7 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string>V</string>
    </property>
    <property name="shortcutContext">
-    <enum>Qt::ApplicationShortcut</enum>
+    <enum>Qt::ShortcutContext::ApplicationShortcut</enum>
    </property>
   </action>
   <action name="actionToggleNormals">
@@ -1979,7 +2094,7 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string>N</string>
    </property>
    <property name="shortcutContext">
-    <enum>Qt::ApplicationShortcut</enum>
+    <enum>Qt::ShortcutContext::ApplicationShortcut</enum>
    </property>
   </action>
   <action name="actionToggleColors">
@@ -1993,7 +2108,7 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string>C</string>
    </property>
    <property name="shortcutContext">
-    <enum>Qt::ApplicationShortcut</enum>
+    <enum>Qt::ShortcutContext::ApplicationShortcut</enum>
    </property>
   </action>
   <action name="actionToggleSF">
@@ -2007,7 +2122,7 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string>S</string>
    </property>
    <property name="shortcutContext">
-    <enum>Qt::ApplicationShortcut</enum>
+    <enum>Qt::ShortcutContext::ApplicationShortcut</enum>
    </property>
   </action>
   <action name="actionApplyTransformation">
@@ -2043,7 +2158,7 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string>Ctrl+V</string>
    </property>
    <property name="shortcutContext">
-    <enum>Qt::ApplicationShortcut</enum>
+    <enum>Qt::ShortcutContext::ApplicationShortcut</enum>
    </property>
   </action>
   <action name="actionPickRotationCenter">
@@ -2058,7 +2173,7 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string>P</string>
    </property>
    <property name="shortcutContext">
-    <enum>Qt::ApplicationShortcut</enum>
+    <enum>Qt::ShortcutContext::ApplicationShortcut</enum>
    </property>
   </action>
   <action name="actionComputeDistancesFromSensor">
@@ -2103,7 +2218,7 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string>Shift+C</string>
    </property>
    <property name="shortcutContext">
-    <enum>Qt::ApplicationShortcut</enum>
+    <enum>Qt::ShortcutContext::ApplicationShortcut</enum>
    </property>
   </action>
   <action name="actionShowActiveSFPrevious">
@@ -2120,7 +2235,7 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string>Shift+Up</string>
    </property>
    <property name="shortcutContext">
-    <enum>Qt::ApplicationShortcut</enum>
+    <enum>Qt::ShortcutContext::ApplicationShortcut</enum>
    </property>
   </action>
   <action name="actionShowActiveSFNext">
@@ -2185,7 +2300,7 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string>D</string>
    </property>
    <property name="shortcutContext">
-    <enum>Qt::ApplicationShortcut</enum>
+    <enum>Qt::ShortcutContext::ApplicationShortcut</enum>
    </property>
   </action>
   <action name="actionPrimitiveFactory">
@@ -2208,7 +2323,7 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string>M</string>
    </property>
    <property name="shortcutContext">
-    <enum>Qt::ApplicationShortcut</enum>
+    <enum>Qt::ShortcutContext::ApplicationShortcut</enum>
    </property>
   </action>
   <action name="actionSetOrthoView">
@@ -2319,7 +2434,7 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string notr="true">7</string>
    </property>
    <property name="shortcutContext">
-    <enum>Qt::ApplicationShortcut</enum>
+    <enum>Qt::ShortcutContext::ApplicationShortcut</enum>
    </property>
   </action>
   <action name="actionSetViewIso2">
@@ -2340,7 +2455,7 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string notr="true">9</string>
    </property>
    <property name="shortcutContext">
-    <enum>Qt::ApplicationShortcut</enum>
+    <enum>Qt::ShortcutContext::ApplicationShortcut</enum>
    </property>
   </action>
   <action name="actionConvertTextureToColor">
@@ -2364,7 +2479,7 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string>Open Color Scales Manager dialog</string>
    </property>
    <property name="shortcutContext">
-    <enum>Qt::ApplicationShortcut</enum>
+    <enum>Qt::ShortcutContext::ApplicationShortcut</enum>
    </property>
   </action>
   <action name="actionCrossSection">
@@ -2621,24 +2736,28 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string>A</string>
    </property>
    <property name="shortcutContext">
-    <enum>Qt::ApplicationShortcut</enum>
+    <enum>Qt::ShortcutContext::ApplicationShortcut</enum>
    </property>
   </action>
   <action name="actionLockRotationAxis">
    <property name="checkable">
     <bool>true</bool>
    </property>
+   <property name="icon">
+    <iconset resource="../icons.qrc">
+     <normaloff>:/CC/images/lockedAxis.png</normaloff>:/CC/images/lockedAxis.png</iconset>
+   </property>
    <property name="text">
     <string>Lock rotation about an axis</string>
    </property>
    <property name="toolTip">
-    <string>Lock 3D camera rotation about an axis</string>
+    <string>Lock 3D camera rotation about an axis (turntable mode)</string>
    </property>
    <property name="shortcut">
     <string>L</string>
    </property>
    <property name="shortcutContext">
-    <enum>Qt::ApplicationShortcut</enum>
+    <enum>Qt::ShortcutContext::ApplicationShortcut</enum>
    </property>
   </action>
   <action name="actionCreateCloudFromEntCenters">
@@ -2764,7 +2883,7 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string>F10</string>
    </property>
    <property name="shortcutContext">
-    <enum>Qt::ApplicationShortcut</enum>
+    <enum>Qt::ShortcutContext::ApplicationShortcut</enum>
    </property>
   </action>
   <action name="actionComputePointsVisibility">
@@ -2795,7 +2914,7 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string>F11</string>
    </property>
    <property name="shortcutContext">
-    <enum>Qt::ApplicationShortcut</enum>
+    <enum>Qt::ShortcutContext::ApplicationShortcut</enum>
    </property>
   </action>
   <action name="actionEnableVisualDebugTraces">
@@ -2933,7 +3052,7 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string>Shift+P</string>
    </property>
    <property name="shortcutContext">
-    <enum>Qt::ApplicationShortcut</enum>
+    <enum>Qt::ShortcutContext::ApplicationShortcut</enum>
    </property>
   </action>
   <action name="actionShowCursor3DCoordinates">
@@ -3078,6 +3197,14 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string>Smooth</string>
    </property>
   </action>
+  <action name="actionExtrudePolyline">
+   <property name="text">
+    <string>Extrude</string>
+   </property>
+   <property name="toolTip">
+    <string>Extrude polyline along Z axis to create a mesh surface</string>
+   </property>
+  </action>
   <action name="actionResetAllVBOs">
    <property name="text">
     <string>Reset all VBOs</string>
@@ -3111,7 +3238,153 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string>Paste from ASCII/text data stored in the clipboard</string>
    </property>
    <property name="shortcut">
-    <string>Ctrl+P</string>
+    <string>Alt+P</string>
+   </property>
+  </action>
+  <action name="actionSplitCloudUsingSF">
+   <property name="text">
+    <string>Split cloud (integer values)</string>
+   </property>
+   <property name="toolTip">
+    <string>Split the selected cloud using the current scalar field.
+The active scalar field should have integer values.</string>
+   </property>
+  </action>
+  <action name="actionAddClassificationSF">
+   <property name="icon">
+    <iconset resource="../icons.qrc">
+     <normaloff>:/CC/images/ccAddConstSF.png</normaloff>:/CC/images/ccAddConstSF.png</iconset>
+   </property>
+   <property name="text">
+    <string>Add classification SF</string>
+   </property>
+   <property name="toolTip">
+    <string>Add classification SF (shorcut to 'Add constant SF')</string>
+   </property>
+  </action>
+  <action name="actionRestoreWindowOnStartup">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Restore window geometry on startup</string>
+   </property>
+  </action>
+  <action name="actionShiftPointsAlongNormals">
+   <property name="text">
+    <string>Shift points along normals</string>
+   </property>
+   <property name="toolTip">
+    <string>Shift the points of the selected cloud along their normals</string>
+   </property>
+  </action>
+  <action name="actionFitCircle">
+   <property name="text">
+    <string>Circle</string>
+   </property>
+   <property name="toolTip">
+    <string>Fits a circle on the selected cloud</string>
+   </property>
+  </action>
+  <action name="actionSetSFsAsNormal">
+   <property name="text">
+    <string>Set SF(s) as normal</string>
+   </property>
+  </action>
+  <action name="actionOpen_project">
+   <property name="text">
+    <string>Open project</string>
+   </property>
+  </action>
+  <action name="actionSaveProject">
+   <property name="icon">
+    <iconset resource="../icons.qrc">
+     <normaloff>:/CC/images/ccSaveProject.png</normaloff>:/CC/images/ccSaveProject.png</iconset>
+   </property>
+   <property name="text">
+    <string>Save project</string>
+   </property>
+   <property name="iconText">
+    <string>Save project (BIN)</string>
+   </property>
+   <property name="toolTip">
+    <string>Save all entities in a BIN file</string>
+   </property>
+   <property name="statusTip">
+    <string>Save all entities in a BIN file</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+S</string>
+   </property>
+  </action>
+  <action name="actionPromoteCircleToCylinder">
+   <property name="icon">
+    <iconset resource="../icons.qrc">
+     <normaloff>:/CC/images/primCylinder.gif</normaloff>:/CC/images/primCylinder.gif</iconset>
+   </property>
+   <property name="text">
+    <string>Promote to cylinder</string>
+   </property>
+  </action>
+  <action name="actionViewInformation">
+   <property name="text">
+    <string>Current 3D view Information</string>
+   </property>
+   <property name="toolTip">
+    <string>Show information on current 3D view</string>
+   </property>
+  </action>
+  <action name="actionLockView3DRotationAxis">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../icons.qrc">
+     <normaloff>:/CC/images/lockedAxis.png</normaloff>:/CC/images/lockedAxis.png</iconset>
+   </property>
+   <property name="text">
+    <string>Lock 3D view rotation axis</string>
+   </property>
+   <property name="toolTip">
+    <string>Lock 3D camera rotation about an axis (turntable mode)</string>
+   </property>
+  </action>
+  <action name="actionShortcutSettings">
+   <property name="text">
+    <string>Shortcut settings</string>
+   </property>
+  </action>
+  <action name="actionSetCustomLightPosition">
+   <property name="text">
+    <string>Set Custom Light position</string>
+   </property>
+   <property name="shortcut">
+    <string>Alt+F7</string>
+   </property>
+  </action>
+  <action name="actionToggleClippingPlanes">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Toggle clipping planes</string>
+   </property>
+   <property name="shortcut">
+    <string>F12</string>
+   </property>
+  </action>
+  <action name="actionSelectDisplayedEntities">
+   <property name="text">
+    <string>Select all displayed entities</string>
+   </property>
+   <property name="toolTip">
+    <string>Select all the entities displayed in the active 3D view</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+A</string>
    </property>
   </action>
  </widget>

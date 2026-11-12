@@ -1,3 +1,5 @@
+#pragma once
+
 //#######################################################################################
 //#                                                                                     #
 //#                              CLOUDCOMPARE PLUGIN: qCSF                              #
@@ -16,7 +18,7 @@
 //#  Zhang W, Qi J, Wan P, Wang H, Xie D, Wang X, Yan G. An Easy-to-Use Airborne LiDAR  #
 //#  Data Filtering Method Based on Cloth Simulation. Remote Sensing. 2016; 8(6):501.   #
 //#                                                                                     #
-//#                                     Copyright ©                                     #
+//#                                     Copyright                                       #
 //#               RAMM laboratory, School of Geography, Beijing Normal University       #
 //#                               (http://ramm.bnu.edu.cn/)                             #
 //#                                                                                     #
@@ -41,10 +43,7 @@
 //* addding a terrain class
 
 //using discrete steps (drop and pull) to approximate the physical process
-//Finding the max height value in nearest N points aroud every particles, as the lowest position where the particles can get.ÔÚÃ¿¸ö²»ÁÏµãÖÜÎ§ÕÒ×îÁÚ½üµÄN¸öµã£¬ÒÔ¸ß³Ì×î´óÖµ×÷ÎªËùÄÜµ½´ïµÄ×îµÍµã¡£
-
-#ifndef _CLOTH_H_
-#define _CLOTH_H_
+//Finding the max height value in nearest N points aroud every particles, as the lowest position where the particles can get.
 
 //local
 #include "Vec3.h"
@@ -52,19 +51,8 @@
 
 //system
 #include <vector>
-#include <string>
 
 class ccMesh;
-
-struct XY
-{
-	XY(int x1, int y1)
-		: x(x1)
-		, y(y1)
-	{}
-	int x;
-	int y;
-};
 
 class Cloth
 {
@@ -73,7 +61,7 @@ private:
 	// total number of particles is num_particles_width*num_particles_height
 	int constraint_iterations;
 
-	double time_step;
+	//double time_step;
 
 	std::vector<Particle> particles; // all particles that are part of this cloth
 //	std::vector<Constraint> constraints; // alle constraints between particles as part of this cloth
@@ -101,7 +89,7 @@ public:
 	inline Particle& getParticle(int x, int y) { return particles[y*num_particles_width + x]; }
 	inline const Particle& getParticle(int x, int y) const { return particles[y*num_particles_width + x]; }
 	inline Particle& getParticleByIndex(int index) { return particles[index]; }
-	inline const Particle getParticleByIndex(int index) const { return particles[index]; }
+	inline const Particle& getParticleByIndex(int index) const { return particles[index]; }
 
 	int num_particles_width; // number of particles in "width" direction
 	int num_particles_height; // number of particles in "height" direction
@@ -122,46 +110,48 @@ public:
 			double step_y,
 			double smoothThreshold,
 			double heightThreshold,
-			int rigidness,
-			double time_step);
+			int rigidness/*,
+			double time_step*/);
 
 	void setheightvals(const std::vector<double>& heightvals)
 	{
 		this->heightvals = heightvals;
 	}
 
-	/** This is an important methods where the time is progressed one time step for the entire cloth.
+	/** This is an important method where the time is progressed one time step for the entire cloth.
 		This includes calling satisfyConstraint() for every constraint, and calling timeStep() for all particles
 	**/
 	double timeStep();
 
-	/* used to add gravity (or any other arbitrary vector) to all particles */
-	void addForce(const Vec3& direction);
+	/* used to add gravity to all particles */
+	void addForce(double f);
 
 	//detecting collision of cloth and terrain
 	void terrainCollision();
 
 	//implementing postpocessing to movable particles
 	void movableFilter();
-	//ÕÒµ½Ã¿×é¿ÉÒÆ¶¯µã£¬Õâ¸öÁ¬Í¨·ÖÁ¿ÖÜÎ§µÄ²»¿ÉÒÆ¶¯µã¡£´ÓËÄÖÜÏòÖÐ¼ä±Æ½ü
+
+	struct XY
+	{
+		XY(int x1, int y1)
+			: x(x1)
+			, y(y1)
+		{}
+		int x;
+		int y;
+	};
+
 	void findUnmovablePoint(const std::vector<XY>& connected,
 							const std::vector<double>& heightvals,
 							std::vector<int>& edgePoints);
 	
-	//Ö±½Ó¶ÔÁªÍ¨·ÖÁ¿½øÐÐ±ßÆÂ´¦Àí
 	void handle_slop_connected(	const std::vector<int>& edgePoints,
 								const std::vector<XY>& connected,
 								const std::vector< std::vector<int> >& neighbors,
 								const std::vector<double> &heightvals);
 
-	//saving the cloth to file
-	void saveToFile(std::string path = "");
-	//saving the movable particles to file
-	void saveMovableToFile(std::string path = "");
-
 	//! Converts the cloth to a CC mesh structure
 	ccMesh* toMesh() const;
 
 };
-
-#endif

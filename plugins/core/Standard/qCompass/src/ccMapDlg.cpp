@@ -17,9 +17,6 @@
 
 #include "ccMapDlg.h"
 
-//Local
-#include "ccGLWindow.h"
-
 //qCC_db
 #include <ccLog.h>
 
@@ -33,7 +30,7 @@
 //system
 #include <assert.h>
 
-ccMapDlg::ccMapDlg(QWidget* parent/*=0*/)
+ccMapDlg::ccMapDlg(QWidget* parent/*=nullptr*/)
 	: ccOverlayDialog(parent)
 	, Ui::mapDlg()
 {

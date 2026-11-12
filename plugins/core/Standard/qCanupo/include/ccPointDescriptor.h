@@ -84,9 +84,8 @@ public:
 		\param[in] radius current radius (half scale) value
 		\param[out] params the computed parameters
 		\param[out] invalidScale whether this scale is 'invalid' (i.e. parameters couldn't be computed, default one have been returned instead)
-		\return false if an error occurred (e.g. not enough memory)
 	**/
-	virtual bool computeScaleParams(CCCoreLib::ReferenceCloud& neighbors, double radius, float params[], bool& invalidScale) = 0;
+	virtual void computeScaleParams(CCCoreLib::ReferenceCloud& neighbors, double radius, float params[], bool& invalidScale) = 0;
 
 protected:
 };
@@ -118,7 +117,7 @@ public:
 	bool fromByteArray(const QByteArray& data);
 
 	//! Loads structure of descriptors from an ".msc" file (see Brodu's version)
-	bool loadFromMSC(QString filename, QString& error, ccPointCloud* corePoints = 0);
+	bool loadFromMSC(QString filename, QString& error, ccPointCloud* corePoints = nullptr);
 
 	//! Returns associated scales
 	inline const std::vector<float>& scales() const { return m_scales; }

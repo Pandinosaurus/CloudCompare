@@ -1,3 +1,5 @@
+#pragma once
+
 //##########################################################################
 //#                                                                        #
 //#                    CLOUDCOMPARE PLUGIN: qRANSAC_SD                     #
@@ -15,11 +17,7 @@
 //#                                                                        #
 //##########################################################################
 
-#ifndef Q_RANSAC_SD_PLUGIN_HEADER
-#define Q_RANSAC_SD_PLUGIN_HEADER
-
 #include "ccStdPluginInterface.h"
-
 
 //! Wrapper to Schnabel et al. library for automatic shape detection in point cloud
 /** "Efficient RANSAC for Point-Cloud Shape Detection", Ruwen Schnabel, Roland Wahl, 
@@ -77,18 +75,18 @@ public:
 			, createCloudFromLeftOverPoints(true)
 			, allowSimplification(true)
 			, allowFitting(true)
-			, minSphereRadius(-std::numeric_limits<float>::infinity())
-			, maxSphereRadius(std::numeric_limits<float>::infinity())
-			, minCylinderRadius(-std::numeric_limits<float>::infinity())
-			, maxCylinderRadius(std::numeric_limits<float>::infinity())
-			, maxCylinderLength(std::numeric_limits<float>::infinity())
-			, maxConeRadius(std::numeric_limits<float>::infinity())
-			, maxConeAngle_deg(std::numeric_limits<float>::infinity())
-			, maxConeLength(std::numeric_limits<float>::infinity())
-			, minTorusMinorRadius(std::numeric_limits<float>::infinity())
-			, minTorusMajorRadius(std::numeric_limits<float>::infinity())
-			, maxTorusMinorRadius(std::numeric_limits<float>::infinity())
-			, maxTorusMajorRadius(std::numeric_limits<float>::infinity())
+			, minSphereRadius(0)
+			, maxSphereRadius(std::numeric_limits<float>::max())
+			, minCylinderRadius(0)
+			, maxCylinderRadius(std::numeric_limits<float>::max())
+			, maxCylinderLength(std::numeric_limits<float>::max())
+			, maxConeRadius(std::numeric_limits<float>::max())
+			, maxConeAngle_deg(std::numeric_limits<float>::max())
+			, maxConeLength(std::numeric_limits<float>::max())
+			, minTorusMinorRadius(0)
+			, minTorusMajorRadius(0)
+			, maxTorusMinorRadius(std::numeric_limits<float>::max())
+			, maxTorusMajorRadius(std::numeric_limits<float>::max())
 		{
 			primEnabled[RPT_PLANE] = true;
 			primEnabled[RPT_SPHERE] = true;
@@ -106,18 +104,18 @@ public:
 			, createCloudFromLeftOverPoints(true)
 			, allowSimplification(true)
 			, allowFitting(true)
-			, minSphereRadius(-std::numeric_limits<float>::infinity())
-			, maxSphereRadius(std::numeric_limits<float>::infinity())
-			, minCylinderRadius(-std::numeric_limits<float>::infinity())
-			, maxCylinderRadius(std::numeric_limits<float>::infinity())
-			, maxCylinderLength(std::numeric_limits<float>::infinity())
-			, maxConeRadius(std::numeric_limits<float>::infinity())
-			, maxConeAngle_deg(std::numeric_limits<float>::infinity())
-			, maxConeLength(std::numeric_limits<float>::infinity())
-			, minTorusMinorRadius(std::numeric_limits<float>::infinity())
-			, minTorusMajorRadius(std::numeric_limits<float>::infinity())
-			, maxTorusMinorRadius(std::numeric_limits<float>::infinity())
-			, maxTorusMajorRadius(std::numeric_limits<float>::infinity())
+			, minSphereRadius(0)
+			, maxSphereRadius(std::numeric_limits<float>::max())
+			, minCylinderRadius(0)
+			, maxCylinderRadius(std::numeric_limits<float>::max())
+			, maxCylinderLength(std::numeric_limits<float>::max())
+			, maxConeRadius(std::numeric_limits<float>::max())
+			, maxConeAngle_deg(std::numeric_limits<float>::max())
+			, maxConeLength(std::numeric_limits<float>::max())
+			, minTorusMinorRadius(0)
+			, minTorusMajorRadius(0)
+			, maxTorusMinorRadius(std::numeric_limits<float>::max())
+			, maxTorusMajorRadius(std::numeric_limits<float>::max())
 		{
 			primEnabled[RPT_PLANE] = true;
 			primEnabled[RPT_SPHERE] = true;
@@ -135,7 +133,7 @@ public:
 	virtual QList<QAction *> getActions() override;
 	virtual void registerCommands(ccCommandLineInterface* cmd) override;
 
-	static ccHObject* executeRANSAC(ccPointCloud* ccPC, const RansacParams& params, bool silent = false);
+	static ccHObject* ExecuteRANSAC(ccPointCloud* ccPC, const RansacParams& params, ccMainAppInterface* app = nullptr, bool silent = false);
 protected:
 
 	//! Slot called when associated ation is triggered
@@ -146,5 +144,3 @@ protected:
 	//! Associated action
 	QAction* m_action;
 };
-
-#endif

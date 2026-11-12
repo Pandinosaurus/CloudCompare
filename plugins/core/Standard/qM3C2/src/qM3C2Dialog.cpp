@@ -17,8 +17,9 @@
 
 #include "qM3C2Dialog.h"
 
-//qCC
-#include "ccMainAppInterface.h"
+//CCPluginAPI
+#include <ccMainAppInterface.h>
+#include <ccQtHelpers.h>
 
 //qCC_db
 #include <ccFileUtils.h>
@@ -80,19 +81,19 @@ static ccPointCloud* GetCloudFromCombo(QComboBox* comboBox, ccHObject* dbRoot)
 
 /*** HELPERS (END) ***/
 
-qM3C2Dialog::qM3C2Dialog(ccPointCloud* cloud1, ccPointCloud* cloud2, ccMainAppInterface* app)
+qM3C2Dialog::qM3C2Dialog(ccPointCloud* cloud1, ccPointCloud* cloud2, ccMainAppInterface* app, ccPointCloud *corePointsCloud)
 	: QDialog(app ? app->getMainWindow() : nullptr)
 	, Ui::M3C2Dialog()
 	, m_app(app)
 	, m_cloud1(nullptr)
 	, m_cloud2(nullptr)
-	, m_corePointsCloud(nullptr)
+	, m_corePointsCloud(corePointsCloud)
 {
 	setupUi(this);
 
-	int maxThreadCount = QThread::idealThreadCount();
-	maxThreadCountSpinBox->setRange(1, maxThreadCount);
-	maxThreadCountSpinBox->setSuffix(QString(" / %1").arg(maxThreadCount));
+	static const int MaxThreadCount = QThread::idealThreadCount();
+	maxThreadCountSpinBox->setRange(1, MaxThreadCount);
+	maxThreadCountSpinBox->setSuffix(QString(" / %1").arg(MaxThreadCount));
 
 	connect(showCloud1CheckBox,		&QAbstractButton::toggled,	this, &qM3C2Dialog::setCloud1Visibility);
 	connect(showCloud2CheckBox,		&QAbstractButton::toggled,	this, &qM3C2Dialog::setCloud2Visibility);
@@ -102,15 +103,13 @@ qM3C2Dialog::qM3C2Dialog(ccPointCloud* cloud1, ccPointCloud* cloud2, ccMainAppIn
 	connect(swapCloudsToolButton,	&QAbstractButton::clicked,	this, &qM3C2Dialog::swapClouds);
 	connect(guessParamsPushButton,	&QAbstractButton::clicked,	this, &qM3C2Dialog::guessParamsSlow);
 
-	connect(projDestComboBox, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &qM3C2Dialog::projDestIndexChanged);
+	connect(projDestComboBox, qOverload<int>(&QComboBox::currentIndexChanged), this, &qM3C2Dialog::projDestIndexChanged);
 
-	connect(cpOtherCloudComboBox, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &qM3C2Dialog::updateNormalComboBox);
-	connect(normalSourceComboBox, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &qM3C2Dialog::onUpdateNormalComboBoxChanged);
+	connect(cpOtherCloudComboBox, qOverload<int>(&QComboBox::currentIndexChanged), this, &qM3C2Dialog::updateNormalComboBox);
+	connect(normalSourceComboBox, qOverload<int>(&QComboBox::currentIndexChanged), this, &qM3C2Dialog::onUpdateNormalComboBoxChanged);
 	connect(cpUseCloud1RadioButton, &QAbstractButton::toggled, this, &qM3C2Dialog::updateNormalComboBox);
 	connect(cpSubsampleRadioButton, &QAbstractButton::toggled, this, &qM3C2Dialog::updateNormalComboBox);
 	connect(cpUseOtherCloudRadioButton, &QAbstractButton::toggled, this, &qM3C2Dialog::updateNormalComboBox);
-
-	loadParamsFromPersistentSettings();
 
 	setClouds(cloud1, cloud2);
 
@@ -134,9 +133,19 @@ qM3C2Dialog::qM3C2Dialog(ccPointCloud* cloud1, ccPointCloud* cloud2, ccMainAppIn
 	}
 	else
 	{
-		//command line mode: we need to update the combo-box
-		updateNormalComboBox();
+		if (m_corePointsCloud)
+		{
+			cpOtherCloudComboBox->addItem(GetEntityName(m_corePointsCloud), QVariant(m_corePointsCloud->getUniqueID()));
+			normOriCloudComboBox->addItem(GetEntityName(m_corePointsCloud), QVariant(m_corePointsCloud->getUniqueID()));
+		}
 	}
+
+	if (m_corePointsCloud)
+	{
+		setCorePointsCloud(corePointsCloud);
+	}
+
+	loadParamsFromPersistentSettings(); // must be done after updating the 'normal source' combox-box!
 }
 
 bool PopulateSFCombo(QComboBox* combo, const ccPointCloud& cloud, int defaultFieldIndex = -1, QString defaultField = QString())
@@ -153,7 +162,7 @@ bool PopulateSFCombo(QComboBox* combo, const ccPointCloud& cloud, int defaultFie
 	bool defaultFieldFound = false;
 	for (unsigned i = 0; i < sfCount; ++i)
 	{
-		QString sfName = cloud.getScalarFieldName(i);
+		QString sfName = QString::fromStdString(cloud.getScalarFieldName(i));
 		combo->addItem(sfName);
 		if (selectedFieldIndex < 0 && !defaultField.isEmpty())
 		{
@@ -278,8 +287,8 @@ void qM3C2Dialog::updateNormalComboBox()
 	{
 		normalSourceComboBox->setCurrentIndex(lastIndex); //default mode
 	}
-	
-	if (m_cloud1 && m_cloud1->hasNormals())
+
+	if (m_cloud1 && m_cloud1->hasNormals() && cpUseCloud1RadioButton->isChecked())
 	{
 		normalSourceComboBox->addItem("Use cloud #1 normals", QVariant(qM3C2Normals::USE_CLOUD1_NORMALS));
 		++lastIndex;
@@ -289,19 +298,34 @@ void qM3C2Dialog::updateNormalComboBox()
 			previouslySelectedItem = qM3C2Normals::USE_CLOUD1_NORMALS;
 		}
 	}
-	
+
 	if (cpUseOtherCloudRadioButton->isChecked())
 	{
-		//return the cloud currently selected in the combox box
-		ccPointCloud* otherCloud = GetCloudFromCombo(cpOtherCloudComboBox, m_app->dbRootObject());
-		if (otherCloud && otherCloud->hasNormals())
+		if (m_app)
 		{
-			normalSourceComboBox->addItem("Use core points normals", QVariant(qM3C2Normals::USE_CORE_POINTS_NORMALS));
-			++lastIndex;
-			if (previouslySelectedItem == qM3C2Normals::USE_CORE_POINTS_NORMALS || previouslySelectedItem < 0)
+			//return the cloud currently selected in the combox box
+			ccPointCloud* otherCloud = GetCloudFromCombo(cpOtherCloudComboBox, m_app->dbRootObject());
+			if (otherCloud && otherCloud->hasNormals())
 			{
-				normalSourceComboBox->setCurrentIndex(lastIndex);
-				previouslySelectedItem = qM3C2Normals::USE_CORE_POINTS_NORMALS;
+				normalSourceComboBox->addItem("Use core points normals", QVariant(qM3C2Normals::USE_CORE_POINTS_NORMALS));
+				++lastIndex;
+				if (previouslySelectedItem == qM3C2Normals::USE_CORE_POINTS_NORMALS || previouslySelectedItem < 0)
+				{
+					normalSourceComboBox->setCurrentIndex(lastIndex);
+				}
+			}
+		}
+		else // command line interface
+		{
+			//return the core points cloud
+			if (m_corePointsCloud && m_corePointsCloud->hasNormals())
+			{
+				normalSourceComboBox->addItem("Use core points normals", QVariant(qM3C2Normals::USE_CORE_POINTS_NORMALS));
+				++lastIndex;
+				if (previouslySelectedItem == qM3C2Normals::USE_CORE_POINTS_NORMALS || previouslySelectedItem < 0)
+				{
+					normalSourceComboBox->setCurrentIndex(lastIndex);
+				}
 			}
 		}
 	}
@@ -319,13 +343,45 @@ ccPointCloud* qM3C2Dialog::getCorePointsCloud() const
 	}
 	else if (cpUseOtherCloudRadioButton->isChecked())
 	{
-		//return the cloud currently selected in the combox box
-		return GetCloudFromCombo(cpOtherCloudComboBox, m_app->dbRootObject());
+		if(m_app)
+		{
+			//return the cloud currently selected in the combox box
+			return GetCloudFromCombo(cpOtherCloudComboBox, m_app->dbRootObject());
+		}
+		else // command line interface
+		{
+			return m_corePointsCloud;
+		}
 	}
 	else
 	{
 		return nullptr;
 	}
+}
+
+void qM3C2Dialog::setCorePointsCloud(ccPointCloud* cloud)
+{
+	m_corePointsCloud = cloud;
+	// the combo box cpOtherCloudComboBox is populated at the creation of the dialog, so the core cloud should already be in it
+	// look for the index of the core cloud and set cpOtherCloudComboBox
+	int index = -1;
+	for (int i = 0; i < cpOtherCloudComboBox->count(); ++i)
+	{
+		if (cpOtherCloudComboBox->itemData(i) == QVariant(cloud->getUniqueID()))
+		{
+			// ccLog::Print("[qM3C2Dialog::setCorePointsCloud] index of core cloud " + cloud->getName() + " is " + QString::number(i));
+			index = i;
+			break;
+		}
+	}
+	if (index == -1)
+	{
+		ccLog::Error("[qM3C2Dialog::setCorePointsCloud] core cloud " + cloud->getName() + " not found in the cpOtherCloudComboBox");
+	}
+
+	cpOtherCloudComboBox->setCurrentIndex(index);
+
+	QApplication::processEvents();
 }
 
 ccPointCloud* qM3C2Dialog::getNormalsOrientationCloud() const
@@ -375,7 +431,11 @@ qM3C2Normals::ComputationMode qM3C2Dialog::getNormalsComputationMode() const
 	if (normalSourceComboBox->currentIndex() >= 0)
 	{
 		int selectedItem = normalSourceComboBox->currentData().toInt();
-		if (selectedItem == qM3C2Normals::USE_CLOUD1_NORMALS)
+		if (normMultiScaleRadioButton->isChecked()) // MULTI_SCALE_MODE whatever the normalSourceComboBox value
+		{
+			return qM3C2Normals::MULTI_SCALE_MODE;
+		}
+		else if (selectedItem == qM3C2Normals::USE_CLOUD1_NORMALS)
 		{
 			assert(m_cloud1 && m_cloud1->hasNormals());
 			return qM3C2Normals::USE_CLOUD1_NORMALS;
@@ -482,7 +542,7 @@ void qM3C2Dialog::loadParamsFrom(const QSettings& settings)
 	bool exportStdDevInfo = settings.value("ExportStdDevInfo", exportStdDevInfoCheckBox->isChecked()).toBool();
 	bool exportDensityAtProjScale = settings.value("ExportDensityAtProjScale", exportDensityAtProjScaleCheckBox->isChecked()).toBool();
 
-	int maxThreadCount = settings.value("MaxThreadCount", maxThreadCountSpinBox->maximum()).toInt();
+	int maxThreadCount = settings.value("MaxThreadCount", ccQtHelpers::GetMaxThreadCount()).toInt();
 
 	bool usePrecisionMaps = settings.value("UsePrecisionMaps", precisionMapsGroupBox->isChecked()).toBool();
 	double pm1Scale = settings.value("PM1Scale", pm1ScaleDoubleSpinBox->value()).toDouble();
@@ -490,6 +550,24 @@ void qM3C2Dialog::loadParamsFrom(const QSettings& settings)
 
 	//apply parameters
 	normalScaleDoubleSpinBox->setValue(normalScale);
+
+	// NORMAL MODE
+	// Check the correct radio button between:  cpUseCloud1RadioButton / cpSubsampleRadioButton / cpUseOtherCloudRadioButton
+	// Normal modes: DEFAULT_MODE / USE_CLOUD1_NORMAL / MULTI_SCALE_MODE / VERT_MODE / HORIZ_MODE /USE_CORE_POINTS_NORMALS
+	if (normModeInt == qM3C2Normals::USE_CORE_POINTS_NORMALS)
+	{
+		cpUseOtherCloudRadioButton->setChecked(true);
+	}
+	else
+	{
+		if (subsampleEnabled)
+			cpSubsampleRadioButton->setChecked(true);
+		else
+			cpUseCloud1RadioButton->setChecked(true);
+	}
+	QApplication::processEvents(); // force refreshing normalSourceComboBox
+	cpSubsamplingDoubleSpinBox->setValue(subsampleRadius);
+
 	switch(normModeInt)
 	{
 	case qM3C2Normals::USE_CLOUD1_NORMALS:
@@ -541,12 +619,6 @@ void qM3C2Dialog::loadParamsFrom(const QSettings& settings)
 
 	cylDiameterDoubleSpinBox->setValue(seachScale);
 	cylHalfHeightDoubleSpinBox->setValue(searchDepth);
-	
-	cpSubsamplingDoubleSpinBox->setValue(subsampleRadius);
-	if (subsampleEnabled)
-		cpSubsampleRadioButton->setChecked(true);
-	else
-		cpUseCloud1RadioButton->setChecked(true);
 
 	rmsCheckBox->setChecked(registrationErrorEnabled);
 	rmsDoubleSpinBox->setValue(registrationError);
@@ -649,6 +721,10 @@ bool qM3C2Dialog::loadParamsFromFile(QString filename)
 
 	loadParamsFrom(fileSettings);
 
+	// load the requested normal mode from the parameter file (used in command line calls)
+	int normalMode = fileSettings.value("NormalMode", static_cast<int>(qM3C2Normals::DEFAULT_MODE)).toInt();
+	m_requestedComputationMode = static_cast<qM3C2Normals::ComputationMode>(normalMode);
+
 	return true;
 }
 
@@ -684,16 +760,17 @@ void qM3C2Dialog::guessParams(bool fastMode/*=false*/)
 		return;
 
 	unsigned minPoints4Stats = getMinPointsForStats() * 6; //see article: ideal = 30 while default = 5
-	//Guessed parameters
-	qM3C2Tools::GuessedParams params;
-	params.preferredDimension = normOriPreferredComboBox->currentIndex();
 
+	qM3C2Tools::GuessedParams params;
 	if (qM3C2Tools::GuessBestParams(m_cloud1, m_cloud2, minPoints4Stats, params, fastMode, m_app))
 	{
 		normalScaleDoubleSpinBox->setValue(params.normScale);
 		cylDiameterDoubleSpinBox->setValue(params.projScale);
 		cylHalfHeightDoubleSpinBox->setValue(params.projDepth);
-		normOriPreferredComboBox->setCurrentIndex(params.preferredDimension);
+		if (params.preferredDimension >= 0 && params.preferredDimension < 3)
+		{
+			normOriPreferredComboBox->setCurrentIndex(params.preferredDimension * 2); //*2 because for each dimension, the preferred orientation is either + or -
+		}
 
 		minScaleDoubleSpinBox->setValue(params.normScale / 2);
 		stepScaleDoubleSpinBox->setValue(params.normScale / 2);

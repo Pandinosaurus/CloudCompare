@@ -1,27 +1,26 @@
-//##########################################################################
-//#                                                                        #
-//#                              CLOUDCOMPARE                              #
-//#                                                                        #
-//#  This program is free software; you can redistribute it and/or modify  #
-//#  it under the terms of the GNU General Public License as published by  #
-//#  the Free Software Foundation; version 2 or later of the License.      #
-//#                                                                        #
-//#  This program is distributed in the hope that it will be useful,       #
-//#  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
-//#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
-//#  GNU General Public License for more details.                          #
-//#                                                                        #
-//#          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
-//#                                                                        #
-//##########################################################################
+#pragma once
 
-#ifndef CC_IMAGE_HEADER
-#define CC_IMAGE_HEADER
+// ##########################################################################
+// #                                                                        #
+// #                              CLOUDCOMPARE                              #
+// #                                                                        #
+// #  This program is free software; you can redistribute it and/or modify  #
+// #  it under the terms of the GNU General Public License as published by  #
+// #  the Free Software Foundation; version 2 or later of the License.      #
+// #                                                                        #
+// #  This program is distributed in the hope that it will be useful,       #
+// #  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
+// #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
+// #  GNU General Public License for more details.                          #
+// #                                                                        #
+// #          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
+// #                                                                        #
+// ##########################################################################
 
-//Local
+// Local
 #include "ccHObject.h"
 
-//Qt
+// Qt
 #include <QImage>
 
 class ccCameraSensor;
@@ -29,76 +28,115 @@ class ccCameraSensor;
 //! Generic image
 class QCC_DB_LIB_API ccImage : public ccHObject
 {
-public:
-
+  public:
 	//! Default constructor
 	ccImage();
 
 	//! Constructor from QImage
 	ccImage(const QImage& image, const QString& name = QString("unknown"));
 
-	//inherited methods (ccHObject)
-	virtual bool isSerializable() const override { return true; }
+	//! Copy constructor
+	ccImage(const ccImage& image, bool keepSensorLink = true);
+
+	// inherited methods (ccHObject)
+	bool isSerializable() const override
+	{
+		return true;
+	}
 
 	//! Returns unique class ID
-	virtual CC_CLASS_ENUM getClassID() const override { return CC_TYPES::IMAGE; }
+	CC_CLASS_ENUM getClassID() const override
+	{
+		return CC_TYPES::IMAGE;
+	}
 
 	//! Loads image from file
 	/** \param filename image filename
-		\param error a human readable description of what went wrong (if method fails)
-		\return success
+	    \param error a human readable description of what went wrong (if method fails)
+	    \return success
 	**/
 	bool load(const QString& filename, QString& error);
 
 	//! Returns image data
-	inline QImage& data() { return m_image; }
+	inline QImage& data()
+	{
+		return m_image;
+	}
 	//! Returns image data (const version)
-	inline const QImage& data() const { return m_image; }
+	inline const QImage& data() const
+	{
+		return m_image;
+	}
 
 	//! Sets image data
 	void setData(const QImage& image);
 
 	//! Returns image width
-	inline unsigned getW() const { return m_width; }
+	inline unsigned getW() const
+	{
+		return m_width;
+	}
 
 	//! Returns image height
-	inline unsigned getH() const { return m_height; }
+	inline unsigned getH() const
+	{
+		return m_height;
+	}
 
 	//! Sets image texture transparency
 	void setAlpha(float value);
 
 	//! Returns image texture transparency
-	inline float getAlpha() const { return m_texAlpha; }
+	inline float getAlpha() const
+	{
+		return m_texAlpha;
+	}
 
 	//! Manually sets aspect ratio
-	void setAspectRatio(float ar) { m_aspectRatio = ar; }
+	void setAspectRatio(float ar)
+	{
+		m_aspectRatio = ar;
+	}
 
 	//! Returns aspect ratio
-	inline float getAspectRatio() const { return m_aspectRatio; }
+	inline float getAspectRatio() const
+	{
+		return m_aspectRatio;
+	}
 
 	//! Sets associated sensor
 	void setAssociatedSensor(ccCameraSensor* sensor);
 
 	//! Returns associated sensor
-	ccCameraSensor* getAssociatedSensor() { return m_associatedSensor; }
+	ccCameraSensor* getAssociatedSensor()
+	{
+		return m_associatedSensor;
+	}
 
 	//! Returns associated sensor (const version)
-	const ccCameraSensor* getAssociatedSensor() const { return m_associatedSensor; }
+	const ccCameraSensor* getAssociatedSensor() const
+	{
+		return m_associatedSensor;
+	}
 
-	//inherited from ccHObject
-	virtual ccBBox getOwnFitBB(ccGLMatrix& trans) override;
+	// inherited from ccHObject
+	ccBBox getOwnFitBB(ccGLMatrix& trans) override;
 
-protected:
+	//! Compute the displayed image size
+	QSizeF computeDisplayedSize(int glWidth, int glHeight) const;
 
-	//inherited from ccHObject
-	virtual void drawMeOnly(CC_DRAW_CONTEXT& context) override;
-	virtual void onDeletionOf(const ccHObject* obj) override;
-	virtual bool toFile_MeOnly(QFile& out) const override;
-	virtual bool fromFile_MeOnly(QFile& in, short dataVersion, int flags, LoadedIDMap& oldToNewIDMap) override;
+  protected:
+	// inherited from ccHObject
+	void  drawMeOnly(CC_DRAW_CONTEXT& context) override;
+	void  onDeletionOf(const ccHObject* obj) override;
+	bool  toFile_MeOnly(QFile& out, short dataVersion) const override;
+	bool  fromFile_MeOnly(QFile& in, LoadingContext& context) override;
+	short minimumFileVersion_MeOnly() const override;
 
 	//! Updates aspect ratio
 	void updateAspectRatio();
 
+  protected:
 	//! Image width (in pixels)
 	unsigned m_width;
 	//! Image height (in pixels)
@@ -106,7 +144,7 @@ protected:
 
 	//! Aspect ratio w/h
 	/** Default is m_width/m_height.
-		Should be changed if pixels are not square.
+	    Should be changed if pixels are not square.
 	**/
 	float m_aspectRatio;
 
@@ -119,5 +157,3 @@ protected:
 	//! Associated sensor
 	ccCameraSensor* m_associatedSensor;
 };
-
-#endif //CC_IMAGE_HEADER

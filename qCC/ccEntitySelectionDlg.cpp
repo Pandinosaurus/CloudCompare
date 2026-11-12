@@ -1,45 +1,45 @@
-//##########################################################################
-//#                                                                        #
-//#                              CLOUDCOMPARE                              #
-//#                                                                        #
-//#  This program is free software; you can redistribute it and/or modify  #
-//#  it under the terms of the GNU General Public License as published by  #
-//#  the Free Software Foundation; version 2 or later of the License.      #
-//#                                                                        #
-//#  This program is distributed in the hope that it will be useful,       #
-//#  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
-//#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
-//#  GNU General Public License for more details.                          #
-//#                                                                        #
-//#                    COPYRIGHT: CloudCompare project                     #
-//#                                                                        #
-//##########################################################################
+// ##########################################################################
+// #                                                                        #
+// #                              CLOUDCOMPARE                              #
+// #                                                                        #
+// #  This program is free software; you can redistribute it and/or modify  #
+// #  it under the terms of the GNU General Public License as published by  #
+// #  the Free Software Foundation; version 2 or later of the License.      #
+// #                                                                        #
+// #  This program is distributed in the hope that it will be useful,       #
+// #  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
+// #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
+// #  GNU General Public License for more details.                          #
+// #                                                                        #
+// #                    COPYRIGHT: CloudCompare project                     #
+// #                                                                        #
+// ##########################################################################
 
 #include "ccEntitySelectionDlg.h"
 
-//ui
+// Ui
 #include <ui_entitySelectionDlg.h>
 
-//Qt
+// Qt
 #include <QDialog>
 #include <QListWidgetItem>
 
-ccEntitySelectionDialog::ccEntitySelectionDialog(	const ccHObject::Container& entities,
-													bool multiSelectionEnabled,
-													int defaultSelectedIndex/*=0*/,
-													QWidget* parent/*=0*/,
-													QString labelStr/*=QString()*/)
-	: QDialog(parent, Qt::Tool)
-	, m_ui(new Ui_EntitySelectionDialog)
+ccEntitySelectionDialog::ccEntitySelectionDialog(const ccHObject::Container& entities,
+                                                 bool                        multiSelectionEnabled,
+                                                 int                         defaultSelectedIndex /*=0*/,
+                                                 QWidget*                    parent /*=nullptr*/,
+                                                 QString                     labelStr /*=QString()*/)
+    : QDialog(parent, Qt::Tool)
+    , m_ui(std::make_unique<Ui::EntitySelectionDialog>())
 {
 	m_ui->setupUi(this);
 
-	//multi-selection mode
+	// multi-selection mode
 	if (multiSelectionEnabled)
 	{
 		m_ui->label->setText(tr("Select one or several entities:"));
 		m_ui->listWidget->setSelectionMode(QAbstractItemView::ExtendedSelection);
-		connect(m_ui->selectAllPushButton,  &QPushButton::clicked, this, &ccEntitySelectionDialog::selectAll);
+		connect(m_ui->selectAllPushButton, &QPushButton::clicked, this, &ccEntitySelectionDialog::selectAll);
 		connect(m_ui->selectNonePushButton, &QPushButton::clicked, this, &ccEntitySelectionDialog::selectNone);
 	}
 	else
@@ -50,31 +50,24 @@ ccEntitySelectionDialog::ccEntitySelectionDialog(	const ccHObject::Container& en
 
 	for (size_t i = 0; i < entities.size(); ++i)
 	{
-		//add one line per entity in the combo-box
+		// add one line per entity in the combo-box
 		m_ui->listWidget->insertItem(static_cast<int>(i), new QListWidgetItem(QString("[ID %1] %2").arg(entities[i]->getUniqueID()).arg(entities[i]->getName())));
 	}
-	
-	//default selection
+
+	// default selection
 	if (defaultSelectedIndex >= 0 && static_cast<size_t>(defaultSelectedIndex) < entities.size())
 	{
-		m_ui->listWidget->setItemSelected(m_ui->listWidget->item(defaultSelectedIndex), true);
+		m_ui->listWidget->item(defaultSelectedIndex)->setSelected(true);
 	}
 
-	//custom lalel
+	// custom lalel
 	if (!labelStr.isNull())
 	{
 		m_ui->label->setText(labelStr);
 	}
 }
 
-ccEntitySelectionDialog::~ccEntitySelectionDialog()
-{
-	if (m_ui)
-	{
-		delete m_ui;
-		m_ui = nullptr;
-	}
-}
+ccEntitySelectionDialog::~ccEntitySelectionDialog() = default;
 
 void ccEntitySelectionDialog::selectAll()
 {
@@ -88,14 +81,14 @@ void ccEntitySelectionDialog::selectNone()
 
 int ccEntitySelectionDialog::getSelectedIndex() const
 {
-	//get selected items
+	// get selected items
 	QList<QListWidgetItem*> list = m_ui->listWidget->selectedItems();
 	return list.empty() ? -1 : m_ui->listWidget->row(list.front());
 }
 
 void ccEntitySelectionDialog::getSelectedIndexes(std::vector<int>& indexes) const
 {
-	//get selected items
+	// get selected items
 	QList<QListWidgetItem*> list = m_ui->listWidget->selectedItems();
 
 	try
@@ -104,20 +97,20 @@ void ccEntitySelectionDialog::getSelectedIndexes(std::vector<int>& indexes) cons
 	}
 	catch (const std::bad_alloc&)
 	{
-		//not enough memory?!
+		// not enough memory?!
 		return;
 	}
-	
-	for (int i=0; i<list.size(); ++i)
+
+	for (int i = 0; i < list.size(); ++i)
 	{
 		indexes[i] = m_ui->listWidget->row(list[i]);
 	}
 }
 
-int ccEntitySelectionDialog::SelectEntity(	const ccHObject::Container& entities,
-											int selectedIndex/*=0*/,
-											QWidget* parent/*=0*/,
-											QString label/*=QString()*/)
+int ccEntitySelectionDialog::SelectEntity(const ccHObject::Container& entities,
+                                          int                         selectedIndex /*=0*/,
+                                          QWidget*                    parent /*=nullptr*/,
+                                          QString                     label /*=QString()*/)
 {
 	ccEntitySelectionDialog epDlg(entities, false, selectedIndex, parent, label);
 	if (!epDlg.exec())
@@ -128,10 +121,10 @@ int ccEntitySelectionDialog::SelectEntity(	const ccHObject::Container& entities,
 	return epDlg.getSelectedIndex();
 }
 
-bool ccEntitySelectionDialog::SelectEntities(	const ccHObject::Container& entities,
-												std::vector<int>& selectedIndexes,
-												QWidget* parent/*=0*/,
-												QString label/*=QString()*/)
+bool ccEntitySelectionDialog::SelectEntities(const ccHObject::Container& entities,
+                                             std::vector<int>&           selectedIndexes,
+                                             QWidget*                    parent /*=nullptr*/,
+                                             QString                     label /*=QString()*/)
 {
 	selectedIndexes.clear();
 

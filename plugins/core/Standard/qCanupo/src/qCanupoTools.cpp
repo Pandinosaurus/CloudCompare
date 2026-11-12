@@ -31,7 +31,9 @@
 #include <ccScalarField.h>
 
 //qCC_plugins
-#include "ccMainAppInterface.h"
+#include <ccMainAppInterface.h>
+#include <ccBackgroundTask.h>
+#include <ccQtHelpers.h>
 
 //Qt
 #include <QApplication>
@@ -39,26 +41,32 @@
 #include <QMainWindow>
 #include <QtConcurrentMap>
 
+#if defined(CC_WINDOWS)
+#include <windows.h>
+#else
+#include <ctime>
+#include <unistd.h>
+#endif
+
 //ComputeCorePointsDescriptors parameters
-static struct
+struct ComputeCorePointsDescParams
 {
-	CCCoreLib::GenericIndexedCloud* corePoints;
-	ccGenericPointCloud* sourceCloud;
-	CCCoreLib::DgmOctree* octree;
-	unsigned char octreeLevel;
-	CorePointDescSet* descriptors;
-	bool invalidDescriptors;
+	CCCoreLib::GenericIndexedCloud* corePoints = nullptr;
+	ccGenericPointCloud* sourceCloud = nullptr;
+	CCCoreLib::DgmOctree* octree = nullptr;
+	unsigned char octreeLevel = 0;
+	CorePointDescSet* descriptors = nullptr;
+	bool invalidDescriptors = false;
 
-	CCCoreLib::NormalizedProgress* nProgress;
-	bool processCanceled;
-	bool errorOccurred;
+	CCCoreLib::NormalizedProgress* nProgress = nullptr;
+	bool processCanceled = false;
+	bool errorOccurred = false;
 
-	ScaleParamsComputer* computer; //the per-scale parameters computer 
+	ScaleParamsComputer* computer = nullptr; //the per-scale parameters computer 
 
-	std::vector<ccScalarField*>* roughnessSFs; //for test
-
-
-} s_computeCorePointsDescParams;
+	std::vector<ccScalarField*>* roughnessSFs = nullptr; //for test
+};
+static ComputeCorePointsDescParams s_computeCorePointsDescParams;
 
 //! Per-point descriptor computer (all the parameters are stored in s_computeCorePointsDescParams)
 void ComputeCorePointDescriptor(unsigned index)
@@ -166,13 +174,7 @@ void ComputeCorePointDescriptor(unsigned index)
 			}
 
 			bool invalidScale = false;
-			if (!s_computeCorePointsDescParams.computer->computeScaleParams(subset, radius, &(desc.params[i*dimPerScale]), invalidScale))
-			{
-				//an error occurred!
-				s_computeCorePointsDescParams.errorOccurred = true;
-				s_computeCorePointsDescParams.processCanceled = true; //to make the loop stop!
-				return;
-			}
+			s_computeCorePointsDescParams.computer->computeScaleParams(subset, radius, &(desc.params[i*dimPerScale]), invalidScale);
 
 			if (invalidScale)
 			{
@@ -210,9 +212,9 @@ bool qCanupoTools::ComputeCorePointsDescriptors(CCCoreLib::GenericIndexedCloud* 
 												QString& error, //if any
 												unsigned descriptorID/*=DESC_DIMENSIONALITY*/,
 												int maxThreadCount/*=0*/,
-												CCCoreLib::GenericProgressCallback* progressCb/*=0*/,
-												CCCoreLib::DgmOctree* inputOctree/*=0*/,
-												std::vector<ccScalarField*>* roughnessSFs/*=0*/)
+												CCCoreLib::GenericProgressCallback* progressCb/*=nullptr*/,
+												CCCoreLib::DgmOctree* inputOctree/*=nullptr*/,
+												std::vector<ccScalarField*>* roughnessSFs/*=nullptr*/)
 {
 	assert(corePoints && sourceCloud);
 	assert(!sortedScales.empty());
@@ -269,6 +271,7 @@ bool qCanupoTools::ComputeCorePointsDescriptors(CCCoreLib::GenericIndexedCloud* 
 			progressCb->setInfo(qPrintable(QString("Core points: %1\nSource points: %2").arg(corePtsCount).arg(sourceCloud->size())));
 			progressCb->setMethodTitle("Computing descriptors");
 		}
+		progressCb->update(0);
 		progressCb->start();
 		QApplication::processEvents();
 	}
@@ -288,7 +291,7 @@ bool qCanupoTools::ComputeCorePointsDescriptors(CCCoreLib::GenericIndexedCloud* 
 		success = corePointsDescriptors.setScales(sortedScales); //automatically resizes the 'params' structure for each core point
 	if (!success)
 	{
-		error = "Not enough memory!";
+		error = "Not enough memory to compute core points!";
 		if (!inputOctree)
 			delete theOctree;
 		return false;
@@ -337,11 +340,14 @@ bool qCanupoTools::ComputeCorePointsDescriptors(CCCoreLib::GenericIndexedCloud* 
 
 		if (maxThreadCount == 0)
 		{
-			maxThreadCount = QThread::idealThreadCount();
+			maxThreadCount = ccQtHelpers::GetMaxThreadCount();
 		}
 		assert(maxThreadCount <= QThread::idealThreadCount());
 		QThreadPool::globalInstance()->setMaxThreadCount(maxThreadCount);
-		QtConcurrent::blockingMap(corePointsIndexes, ComputeCorePointDescriptor);
+
+		// Do not use a blocking map, as it's blocking the UI as well
+		auto future = QtConcurrent::map(corePointsIndexes, ComputeCorePointDescriptor);
+		ccBackgroundTask::Wait(future);
 	}
 	else
 	{
@@ -362,16 +368,7 @@ bool qCanupoTools::ComputeCorePointsDescriptors(CCCoreLib::GenericIndexedCloud* 
 	invalidDescriptors = s_computeCorePointsDescParams.invalidDescriptors;
 
 	//reset static parameters (just to be clean ;)
-	s_computeCorePointsDescParams.corePoints = nullptr;
-	s_computeCorePointsDescParams.descriptors = nullptr;
-	s_computeCorePointsDescParams.sourceCloud = nullptr;
-	s_computeCorePointsDescParams.octree = nullptr;
-	s_computeCorePointsDescParams.octreeLevel = 0;
-	s_computeCorePointsDescParams.nProgress = nullptr;
-	s_computeCorePointsDescParams.processCanceled = false;
-	s_computeCorePointsDescParams.errorOccurred = false;
-	s_computeCorePointsDescParams.invalidDescriptors = false;
-	s_computeCorePointsDescParams.computer = nullptr;
+	s_computeCorePointsDescParams = {};
 
 	if (progressCb)
 	{
@@ -516,8 +513,8 @@ bool qCanupoTools::TrainClassifier(	Classifier& classifier,
 									const CorePointDescSet& descriptors2,
 									const std::vector<float>& scales,
 									ccPointCloud* mscCloud,
-									const CorePointDescSet* evaluationDescriptors/*=0*/,
-									ccMainAppInterface* app/*=0*/)
+									const CorePointDescSet* evaluationDescriptors/*=nullptr*/,
+									ccMainAppInterface* app/*=nullptr*/)
 {
 	//fuse both descriptor sets in a single 'dlib' structure
 	size_t nsamples1 = descriptors1.size();
@@ -564,7 +561,7 @@ bool qCanupoTools::TrainClassifier(	Classifier& classifier,
 	catch (const std::bad_alloc&)
 	{
 		if (app)
-			app->dispToConsole("Not enough memory!", ccMainAppInterface::ERR_CONSOLE_MESSAGE);
+			app->dispToConsole("Not enough memory to prepare the samples!", ccMainAppInterface::ERR_CONSOLE_MESSAGE);
 		return false;
 	}
 
@@ -618,7 +615,7 @@ bool qCanupoTools::TrainClassifier(	Classifier& classifier,
 		catch (...)
 		{
 			if (app)
-				app->dispToConsole("Oups, it seems the LDA classifier just crashed!", ccMainAppInterface::ERR_CONSOLE_MESSAGE);
+				app->dispToConsole("Oops, it seems the LDA classifier just crashed!", ccMainAppInterface::ERR_CONSOLE_MESSAGE);
 			return false;
 		}
 	}
@@ -633,7 +630,7 @@ bool qCanupoTools::TrainClassifier(	Classifier& classifier,
 		catch (const std::bad_alloc&)
 		{
 			if (app)
-				app->dispToConsole("Not enough memory!", ccMainAppInterface::ERR_CONSOLE_MESSAGE);
+				app->dispToConsole("Not enough memory to project the samples!", ccMainAppInterface::ERR_CONSOLE_MESSAGE);
 			return false;
 		}
 
@@ -647,7 +644,7 @@ bool qCanupoTools::TrainClassifier(	Classifier& classifier,
 		catch (...)
 		{
 			if (app)
-				app->dispToConsole("Oups, it seems the LDA classifier just crashed!", ccMainAppInterface::ERR_CONSOLE_MESSAGE);
+				app->dispToConsole("Oops, it seems the LDA classifier just crashed!", ccMainAppInterface::ERR_CONSOLE_MESSAGE);
 			return false;
 		}
 
@@ -685,7 +682,7 @@ bool qCanupoTools::TrainClassifier(	Classifier& classifier,
 		catch (const std::bad_alloc&)
 		{
 			if (app)
-				app->dispToConsole("Not enough memory!", ccMainAppInterface::ERR_CONSOLE_MESSAGE);
+				app->dispToConsole("Not enough memory to compute 'reduced' samples!", ccMainAppInterface::ERR_CONSOLE_MESSAGE);
 			return false;
 		}
 
@@ -709,7 +706,7 @@ bool qCanupoTools::TrainClassifier(	Classifier& classifier,
 	catch (...)
 	{
 		if (app)
-			app->dispToConsole("Oups, it seems the LDA classifier just crashed!", ccMainAppInterface::ERR_CONSOLE_MESSAGE);
+			app->dispToConsole("Oops, it seems the LDA classifier just crashed!", ccMainAppInterface::ERR_CONSOLE_MESSAGE);
 		return false;
 	}
 
@@ -722,7 +719,7 @@ bool qCanupoTools::TrainClassifier(	Classifier& classifier,
 		catch (const std::bad_alloc&)
 		{
 			if (app)
-				app->dispToConsole("Not enough memory!", ccMainAppInterface::ERR_CONSOLE_MESSAGE);
+				app->dispToConsole("Not enough memory to compute the classifier weights!", ccMainAppInterface::ERR_CONSOLE_MESSAGE);
 			return false;
 		}
 		orthoTrainer.m_weights[fdim] = orthoTrainer.m_weights[fdim - 1];
@@ -745,7 +742,7 @@ bool qCanupoTools::TrainClassifier(	Classifier& classifier,
 		catch (const std::bad_alloc&)
 		{
 			if (app)
-				app->dispToConsole("Not enough memory!", ccMainAppInterface::ERR_CONSOLE_MESSAGE);
+				app->dispToConsole("Not enough memory to project samples!", ccMainAppInterface::ERR_CONSOLE_MESSAGE);
 			return false;
 		}
 
@@ -759,7 +756,7 @@ bool qCanupoTools::TrainClassifier(	Classifier& classifier,
 		catch (...)
 		{
 			if (app)
-				app->dispToConsole("Oups, it seems the LDA classifier just crashed!", ccMainAppInterface::ERR_CONSOLE_MESSAGE);
+				app->dispToConsole("Oops, it seems the LDA classifier just crashed!", ccMainAppInterface::ERR_CONSOLE_MESSAGE);
 			return false;
 		}
 
@@ -793,7 +790,7 @@ bool qCanupoTools::TrainClassifier(	Classifier& classifier,
 								orthoTrainer))
 		{
 			if (app)
-				app->dispToConsole("Not enough memory!",ccMainAppInterface::ERR_CONSOLE_MESSAGE);
+				app->dispToConsole("Not enough memory to 'dilate' the classifier!",ccMainAppInterface::ERR_CONSOLE_MESSAGE);
 			return false;
 		}
 	}

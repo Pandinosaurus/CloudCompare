@@ -38,7 +38,6 @@ class ccMainAppInterface;
 class ccPointCloud;
 class ccPolyline;
 class ccScalarField;
-class ccGLWindow;
 class ccColorScaleSelector;
 class ccSymbolCloud;
 class ccMapWindow;
@@ -51,7 +50,7 @@ class DistanceMapGenerationDlg : public QDialog, public Ui::DistanceMapGeneratio
 public:
 
 	//! Default constructor
-	DistanceMapGenerationDlg(ccPointCloud* cloud, ccScalarField* sf, ccPolyline* polyline, ccMainAppInterface* app=0);
+	DistanceMapGenerationDlg(ccPointCloud* cloud, ccScalarField* sf, ccPolyline* polyline, ccMainAppInterface* app = nullptr);
 
 	//! Default destructor
 	virtual ~DistanceMapGenerationDlg() = default;

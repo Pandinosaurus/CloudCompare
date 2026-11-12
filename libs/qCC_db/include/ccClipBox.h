@@ -1,42 +1,44 @@
-//##########################################################################
-//#                                                                        #
-//#                              CLOUDCOMPARE                              #
-//#                                                                        #
-//#  This program is free software; you can redistribute it and/or modify  #
-//#  it under the terms of the GNU General Public License as published by  #
-//#  the Free Software Foundation; version 2 or later of the License.      #
-//#                                                                        #
-//#  This program is distributed in the hope that it will be useful,       #
-//#  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
-//#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
-//#  GNU General Public License for more details.                          #
-//#                                                                        #
-//#          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
-//#                                                                        #
-//##########################################################################
+#pragma once
 
-#ifndef CC_CLIP_BOX_HEADER
-#define CC_CLIP_BOX_HEADER
+// ##########################################################################
+// #                                                                        #
+// #                              CLOUDCOMPARE                              #
+// #                                                                        #
+// #  This program is free software; you can redistribute it and/or modify  #
+// #  it under the terms of the GNU General Public License as published by  #
+// #  the Free Software Foundation; version 2 or later of the License.      #
+// #                                                                        #
+// #  This program is distributed in the hope that it will be useful,       #
+// #  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
+// #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
+// #  GNU General Public License for more details.                          #
+// #                                                                        #
+// #          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
+// #                                                                        #
+// ##########################################################################
 
-//Local
+// Local
 #include "ccBBox.h"
 #include "ccGenericPointCloud.h"
 #include "ccHObject.h"
 #include "ccInteractor.h"
 
-//Qt
+// Qt
 #include <QObject>
 
+class ccClipBoxPart;
+
 //! Clipping box
-class QCC_DB_LIB_API ccClipBox : public QObject, public ccHObject, public ccInteractor
+class QCC_DB_LIB_API ccClipBox : public QObject
+    , public ccHObject
+    , public ccInteractor
 {
 	Q_OBJECT
 
-public:
-
+  public:
 	//! Default constructor
-	/** \parma name entity name (optional)
-		\param uniqueID unique ID (handle with care)
+	/** \param name entity name (optional)
+	    \param uniqueID unique ID (handle with care)
 	**/
 	ccClipBox(QString name = QString("Clipping box"), unsigned uniqueID = ccUniqueIDGenerator::InvalidUniqueID);
 
@@ -45,55 +47,65 @@ public:
 
 	//! Adds an associated entity
 	/** Warning: resets the current clipping box
-	**/
+	 **/
 	bool addAssociatedEntity(ccHObject* associatedEntity);
 
 	//! Releases all associated entities
 	/** Warning: resets the current clipping box
-	**/
+	 **/
 	void releaseAssociatedEntities();
 
-	//inherited from ccHObject
+	// inherited from ccHObject
 	ccBBox getOwnBB(bool withGLFeatures = false) override;
 
-	//inherited from ccInteractor
-	bool move2D(int x, int y, int dx, int dy, int screenWidth, int screenHeight) override;
+	// inherited from ccInteractor
+	// bool move2D(int x, int y, int dx, int dy, int screenWidth, int screenHeight) override;
 	bool move3D(const CCVector3d& u) override;
 
 	//! Sets last clicked point (on screen)
 	void setClickedPoint(int x, int y, int screenWidth, int screenHeight, const ccGLMatrixd& viewMatrix);
 
 	//! Components
-	enum Components {	NONE			= 0,
-						X_MINUS_ARROW	= 1,
-						X_PLUS_ARROW	= 2,
-						Y_MINUS_ARROW	= 3,
-						Y_PLUS_ARROW	= 4,
-						Z_MINUS_ARROW	= 5,
-						Z_PLUS_ARROW	= 6,
-						CROSS			= 7,
-						SPHERE			= 8,
-						X_MINUS_TORUS	= 9,
-						Y_MINUS_TORUS	= 10,
-						Z_MINUS_TORUS	= 11,
-						X_PLUS_TORUS	= 12,
-						Y_PLUS_TORUS	= 13,
-						Z_PLUS_TORUS	= 14,
+	enum Components
+	{
+		NONE = 0,
+		X_MINUS_ARROW,
+		X_PLUS_ARROW,
+		Y_MINUS_ARROW,
+		Y_PLUS_ARROW,
+		Z_MINUS_ARROW,
+		Z_PLUS_ARROW,
+		CROSS,
+		X_MINUS_TORUS,
+		Y_MINUS_TORUS,
+		Z_MINUS_TORUS,
+		X_PLUS_TORUS,
+		Y_PLUS_TORUS,
+		Z_PLUS_TORUS
 	};
 
 	//! Sets currently active component
 	/** \param id component ID (see Components)
-	**/
-	void setActiveComponent(int id);
+	 **/
+	void setActiveComponent(Components id);
 
-	//inherited from ccHObject
-	inline CC_CLASS_ENUM getClassID() const override { return CC_TYPES::CLIPPING_BOX; }
+	// inherited from ccHObject
+	inline CC_CLASS_ENUM getClassID() const override
+	{
+		return CC_TYPES::CLIPPING_BOX;
+	}
 
 	//! Returns the box extents
-	inline const ccBBox& getBox() const { return m_box; }
+	inline const ccBBox& getBox() const
+	{
+		return m_box;
+	}
 
 	//! Whether to show the box or not
-	inline void showBox(bool state) { m_showBox = state; }
+	inline void showBox(bool state)
+	{
+		m_showBox = state;
+	}
 
 	//! Sets the box extents
 	void setBox(const ccBBox& box);
@@ -103,12 +115,13 @@ public:
 
 	//! Flags the points of a given cloud depending on whether they are inside or outside of this clipping box
 	/** \param cloud point cloud
-		\param visTable visibility flags
-		\param shrink Whether the box is shrinking (faster) or not
+	    \param visTable visibility flags
+	    \param shrink Whether the box is shrinking (faster) or not
 	**/
-	void flagPointsInside(	ccGenericPointCloud* cloud,
-							ccGenericPointCloud::VisibilityTableType* visTable,
-							bool shrink = false) const;
+	void flagPoints(ccGenericPointCloud*                      cloud,
+	                ccGenericPointCloud::VisibilityTableType* visTable,
+	                bool                                      shrink = false,
+	                bool                                      inside = true) const;
 
 	//! Resets box
 	void reset();
@@ -120,26 +133,27 @@ public:
 	void get(ccBBox& extents, ccGLMatrix& transformation);
 
 	//! Associated entity container
-	inline const ccHObject& getContainer() const { return m_entityContainer; }
+	inline const ccHObject& getContainer() const
+	{
+		return m_entityContainer;
+	}
 
-signals:
+  Q_SIGNALS:
 
 	//! Signal sent each time the box is modified
 	void boxModified(const ccBBox* box);
 
-protected: //methods
-
+  protected: // methods
 	//! Updates the associated entity clipping planes
 	void update();
 
-	//inherited from ccHObject
+	// inherited from ccHObject
 	void drawMeOnly(CC_DRAW_CONTEXT& context) override;
 
 	//! Computes arrows display scale
 	PointCoordinateType computeArrowsScale() const;
 
-protected: //members
-	
+  protected: // members
 	//! Associated entities container
 	ccHObject m_entityContainer;
 
@@ -157,6 +171,46 @@ protected: //members
 
 	//! View matrix
 	ccGLMatrixd m_viewMatrix;
+
+	//! Sub-parts (proxies)
+	QMap<int, ccClipBoxPart*> m_parts;
 };
 
-#endif //CC_CLIP_BOX_HEADER
+//! Part of the clipping box (for picking)
+class QCC_DB_LIB_API ccClipBoxPart : public ccHObject
+{
+  public:
+	//! Default constructor
+	/** \param color picking color
+	    \param partID part ID
+	**/
+	ccClipBoxPart(ccClipBox* clipBox, ccClipBox::Components partID)
+	    : m_clipBox(clipBox)
+	    , m_partID(partID)
+	{
+	}
+
+	// inherited from ccHObject
+	inline CC_CLASS_ENUM getClassID() const override
+	{
+		return CC_TYPES::CLIPPING_BOX_PART;
+	}
+
+	//! Returns the corresponding part ID
+	inline ccClipBox::Components partID() const
+	{
+		return m_partID;
+	}
+
+	//! Returns the associated clipping box
+	ccClipBox* clipBox()
+	{
+		return m_clipBox;
+	}
+
+  protected:
+	//! Associated clipping box
+	ccClipBox* m_clipBox;
+	//! Part number
+	ccClipBox::Components m_partID;
+};

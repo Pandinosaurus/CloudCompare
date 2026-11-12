@@ -1,61 +1,77 @@
-//##########################################################################
-//#                                                                        #
-//#                              CLOUDCOMPARE                              #
-//#                                                                        #
-//#  This program is free software; you can redistribute it and/or modify  #
-//#  it under the terms of the GNU General Public License as published by  #
-//#  the Free Software Foundation; version 2 or later of the License.      #
-//#                                                                        #
-//#  This program is distributed in the hope that it will be useful,       #
-//#  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
-//#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
-//#  GNU General Public License for more details.                          #
-//#                                                                        #
-//#          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
-//#                                                                        #
-//##########################################################################
+// ##########################################################################
+// #                                                                        #
+// #                              CLOUDCOMPARE                              #
+// #                                                                        #
+// #  This program is free software; you can redistribute it and/or modify  #
+// #  it under the terms of the GNU General Public License as published by  #
+// #  the Free Software Foundation; version 2 or later of the License.      #
+// #                                                                        #
+// #  This program is distributed in the hope that it will be useful,       #
+// #  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
+// #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
+// #  GNU General Public License for more details.                          #
+// #                                                                        #
+// #          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
+// #                                                                        #
+// ##########################################################################
 
 /** This file is inspired from the Qt wrapper for 3dConnexion devices graciously shared by Dabid Dibben:
-	http://www.codegardening.com/2011/02/using-3dconnexion-mouse-with-qt.html
+    http://www.codegardening.com/2011/02/using-3dconnexion-mouse-with-qt.html
 **/
 
 #include "Mouse3DInput.h"
 
-//qCC_db
-#include <ccLog.h>
-//qCC_gl
-#include <ccGLWindow.h>
-//CCCoreLib
+// Local
+#ifdef CC_3DMOUSE_HID
+#include "Mouse3DInput_hid.h"
+#include "Mouse3DInput_macDriver.h"
+#endif
+
+// CCCoreLib
 #include <CCPlatform.h>
 
-//Qt
-#include <QApplication>
+// qCC_db
+#include <ccLog.h>
 
-//system
-#include <assert.h>
-#include <math.h>
+// qCC_glWindow
+#include <ccGLWindowInterface.h>
+
+// Qt
+#ifndef CC_3DMOUSE_HID
+#include <QAbstractNativeEventFilter>
+#endif
+#include <QApplication>
+#include <QWidget>
+
+// System
+#include <algorithm>
+#include <cassert>
+#include <cmath>
 #ifdef CC_WINDOWS
 #include <windows.h>
 #endif
 
-//3DxWare
-#include <spwmacro.h>
+#ifdef CC_3DMOUSE_HID
+// hidapi - Mouse3DInput_hid.cpp provides the HIDWorker
+#else
+// 3DxWare
 #include <si.h>
 #include <siapp.h>
+#include <spwmacro.h>
 #include <spwmath.h>
-
+#endif
 
 //! Object angular velocity per mouse tick (in radians per ms per count)
-static const double c_3dmouseAngularVelocity = 1.0e-6;
+static const double c_3DMouseAngularVelocity = 1.0e-6;
 
 // Unique instance
 static Mouse3DInput* s_mouseInputInstance = nullptr;
 
-#include <QAbstractNativeEventFilter>
+#ifndef CC_3DMOUSE_HID
 class RawInputEventFilter : public QAbstractNativeEventFilter
 {
-public:
-	bool nativeEventFilter(const QByteArray& eventType, void* msg, long* result) override
+  public:
+	bool nativeEventFilter(const QByteArray& eventType, void* msg, qintptr* result) override
 	{
 		if (!s_mouseInputInstance || !msg)
 		{
@@ -72,10 +88,16 @@ public:
 	}
 };
 static RawInputEventFilter s_rawInputEventFilter;
+#endif // CC_3DMOUSE_HID
 
 Mouse3DInput::Mouse3DInput(QObject* parent)
     : QObject(parent)
+#ifdef CC_3DMOUSE_HID
+    , m_siHandle(nullptr)
+    , m_hidWorker(nullptr)
+#else
     , m_siHandle(SI_NO_HANDLE)
+#endif
 {
 	// Register current instance
 	assert(s_mouseInputInstance == nullptr);
@@ -84,6 +106,9 @@ Mouse3DInput::Mouse3DInput(QObject* parent)
 
 Mouse3DInput::~Mouse3DInput()
 {
+#ifdef CC_3DMOUSE_HID
+	disconnectDriver();
+#endif
 	// Unregister current instance
 	if (s_mouseInputInstance == this)
 	{
@@ -99,22 +124,69 @@ bool Mouse3DInput::connect(QWidget* mainWidget, QString appName)
 		return false;
 	}
 
+#ifdef CC_3DMOUSE_HID
+	Q_UNUSED(mainWidget)
+#ifndef CC_MAC_OS
+	Q_UNUSED(appName)
+#endif
+
+	// Required for Qt::QueuedConnection across thread boundaries.
+	qRegisterMetaType<std::vector<float>>("std::vector<float>");
+
+#ifdef CC_MAC_OS
+	// While the 3Dconnexion driver runs it holds the device, so use the driver
+	// when it's there and hidapi otherwise.
+	m_macDriverClient = new MacDriverClient(this);
+	if (m_macDriverClient->registerWithDriver(appName))
+	{
+		QObject::connect(m_macDriverClient, &MacDriverClient::sigMove3d, this, [this](std::vector<float> v)
+		                 { Q_EMIT sigMove3d(v); },
+		                 Qt::QueuedConnection);
+		QObject::connect(m_macDriverClient, &MacDriverClient::sigReleased, this, &Mouse3DInput::sigReleased, Qt::QueuedConnection);
+		QObject::connect(m_macDriverClient, &MacDriverClient::sigOn3DMouseKeyDown, this, &Mouse3DInput::sigOn3DMouseKeyDown, Qt::QueuedConnection);
+		QObject::connect(m_macDriverClient, &MacDriverClient::sigOn3DMouseKeyUp, this, &Mouse3DInput::sigOn3DMouseKeyUp, Qt::QueuedConnection);
+		return true;
+	}
+	delete m_macDriverClient;
+	m_macDriverClient = nullptr;
+#endif
+
+	// drive the device directly via hidapi (HIDWorker thread)
+	m_hidWorker = new HIDWorker(this);
+	if (!m_hidWorker->openDevice())
+	{
+		// error message already displayed by HIDWorker
+		delete m_hidWorker;
+		m_hidWorker = nullptr;
+		return false;
+	}
+
+	QObject::connect(m_hidWorker, &HIDWorker::sigMove3d, this, [this](std::vector<float> v)
+	                 { Q_EMIT sigMove3d(v); },
+	                 Qt::QueuedConnection);
+	QObject::connect(m_hidWorker, &HIDWorker::sigReleased, this, &Mouse3DInput::sigReleased, Qt::QueuedConnection);
+	QObject::connect(m_hidWorker, &HIDWorker::sigOn3DMouseKeyDown, this, &Mouse3DInput::sigOn3DMouseKeyDown, Qt::QueuedConnection);
+	QObject::connect(m_hidWorker, &HIDWorker::sigOn3DMouseKeyUp, this, &Mouse3DInput::sigOn3DMouseKeyUp, Qt::QueuedConnection);
+
+	m_hidWorker->start();
+	return true;
+#else
 	// Attempt to connect with the 3DxWare driver
 	assert(m_siHandle == SI_NO_HANDLE);
 
 	if (SiInitialize() == SPW_DLL_LOAD_ERROR)
 	{
-		ccLog::Warning(tr("[3D Mouse] Could not load SiAppDll dll files"));
+		ccLog::Warning(tr("[3D Mouse] Could not initialize 3DxWare driver"));
 		return false;
 	}
 
 	// Platform-specific device data
 	SiOpenDataEx oData;
-	SiOpenWinInitEx(&oData, (HWND)mainWidget->winId() );
+	SiOpenWinInitEx(&oData, (HWND)mainWidget->winId());
 	SiOpenWinAddHintBoolEnum(&oData, SI_HINT_USESV3DCMDS, SPW_TRUE);
 	// 3DxWare device handle
 	m_siHandle = SiOpenEx(qUtf16Printable(appName), SI_ANY_DEVICE, SI_NO_MASK, SI_EVENT, &oData);
-	
+
 	if (m_siHandle == SI_NO_HANDLE)
 	{
 		// Get and display initialization error
@@ -126,22 +198,22 @@ bool Mouse3DInput::connect(QWidget* mainWidget, QString appName)
 	SiDevInfo info;
 	if (SiGetDeviceInfo(m_siHandle, &info) == SPW_NO_ERROR)
 	{
-		//DGM: strangely, we get these wrong versions on real wireless devices?!
-		//if (info.majorVersion == 0 && info.minorVersion == 0)
+		// DGM: strangely, we get these wrong versions on real wireless devices?!
+		// if (info.majorVersion == 0 && info.minorVersion == 0)
 		//{
 		//	// Not a real device
 		//	SiTerminate();
 		//	ccLog::Warning("[3D Mouse] Couldn't find a connected device");
 		//	return false;
-		//}
+		// }
 
 		SiDeviceName name;
 		SiGetDeviceName(m_siHandle, &name);
 		ccLog::Print(tr("[3D Mouse] Device: %1 (%2 buttons) - firmware v%3.%4").arg(name.name).arg(info.numButtons).arg(info.majorVersion).arg(info.minorVersion));
 
 		if (info.numButtons == 0
-			&& info.majorVersion == 0
-			&& info.minorVersion == 0)
+		    && info.majorVersion == 0
+		    && info.minorVersion == 0)
 		{
 			// notification only device = fake device
 			// can make CC interactions and mouse capture super slow!!!
@@ -164,10 +236,24 @@ bool Mouse3DInput::connect(QWidget* mainWidget, QString appName)
 	qApp->installNativeEventFilter(&s_rawInputEventFilter);
 
 	return true;
+#endif
 }
 
 void Mouse3DInput::disconnectDriver()
 {
+#ifdef CC_3DMOUSE_HID
+#ifdef CC_MAC_OS
+	delete m_macDriverClient;
+	m_macDriverClient = nullptr;
+#endif
+	if (m_hidWorker)
+	{
+		m_hidWorker->stop();
+		m_hidWorker->wait();
+		delete m_hidWorker;
+		m_hidWorker = nullptr;
+	}
+#else
 	if (m_siHandle != SI_NO_HANDLE)
 	{
 		SiClose(m_siHandle);
@@ -175,130 +261,157 @@ void Mouse3DInput::disconnectDriver()
 		m_siHandle = SI_NO_HANDLE;
 		qApp->removeNativeEventFilter(&s_rawInputEventFilter);
 	}
+#endif
 }
 
 bool Mouse3DInput::onSiEvent(void* siGetEventData)
 {
+#ifdef CC_3DMOUSE_HID
+	// Not used with hidapi - the HIDWorker thread drives the signals directly
+	Q_UNUSED(siGetEventData)
+	return false;
+#else
 	if (m_siHandle == SI_NO_HANDLE || !siGetEventData)
 	{
 		return false;
 	}
 
-	SiSpwEvent siEvent; ///3DxWare data event
-	if (SiGetEvent (m_siHandle, 0, static_cast<SiGetEventData*>(siGetEventData), &siEvent) != SI_IS_EVENT)
+	SiSpwEvent siEvent; /// 3DxWare data event
+	if (SiGetEvent(m_siHandle, 0, static_cast<SiGetEventData*>(siGetEventData), &siEvent) != SI_IS_EVENT)
 	{
 		return false;
 	}
 	switch (siEvent.type)
-	{		
+	{
 	case SI_MOTION_EVENT:
+	{
+		const SiSpwData& eventData = siEvent.u.spwData;
+
+		if (eventData.mData[SI_TX] != 0
+		    || eventData.mData[SI_TY] != 0
+		    || eventData.mData[SI_TZ] != 0
+		    || eventData.mData[SI_RX] != 0
+		    || eventData.mData[SI_RY] != 0
+		    || eventData.mData[SI_RZ] != 0)
 		{
-			const SiSpwData& eventData = siEvent.u.spwData;
+			std::vector<float> axes(6);
+			double             ds = eventData.period * c_3DMouseAngularVelocity; // period is in ms
+			// translation data
+			axes[0] = -static_cast<float>(eventData.mData[SI_TX] * ds);
+			axes[1] = static_cast<float>(eventData.mData[SI_TY] * ds);
+			axes[2] = static_cast<float>(eventData.mData[SI_TZ] * ds);
+			// rotation data
+			axes[3] = -static_cast<float>(eventData.mData[SI_RX] * ds);
+			axes[4] = static_cast<float>(eventData.mData[SI_RY] * ds);
+			axes[5] = static_cast<float>(eventData.mData[SI_RZ] * ds);
 
-			if (	eventData.mData[SI_TX] != 0
-			    ||	eventData.mData[SI_TY] != 0
-			    ||	eventData.mData[SI_TZ] != 0
-			    ||	eventData.mData[SI_RX] != 0
-			    ||	eventData.mData[SI_RY] != 0
-			    ||	eventData.mData[SI_RZ] != 0 )
-			{
-				std::vector<float> axes(6);
-				double ds = eventData.period * c_3dmouseAngularVelocity; //period is in ms
-				//translation data
-				axes[0] = - static_cast<float>(eventData.mData[SI_TX] * ds);
-				axes[1] =   static_cast<float>(eventData.mData[SI_TY] * ds);
-				axes[2] =   static_cast<float>(eventData.mData[SI_TZ] * ds);
-				//rotation data
-				axes[3] = - static_cast<float>(eventData.mData[SI_RX] * ds);
-				axes[4] =   static_cast<float>(eventData.mData[SI_RY] * ds);
-				axes[5] =   static_cast<float>(eventData.mData[SI_RZ] * ds);
-
-				move3d(axes);
-			}
+			move3d(axes);
 		}
-		break;
+	}
+	break;
 
 	case SI_ZERO_EVENT:
-		//FIXME: too flickery!
-		emit sigReleased();
+		// FIXME: too flickery!
+		Q_EMIT sigReleased();
 		break;
 
 	case SI_BUTTON_EVENT:
+	{
+		// ccLog::Print(QString("SI_BUTTON_EVENT"));
+		SPWuint32 buttonNumber = siEvent.u.hwButtonEvent.buttonNumber;
+		if (buttonNumber != 0)
 		{
-		//ccLog::Print(QString("SI_BUTTON_EVENT"));
-			SPWuint32 buttonNumber = siEvent.u.hwButtonEvent.buttonNumber;
-			if (buttonNumber != 0)
-			{
-				if (SiButtonPressed(&siEvent) > 0)
-					on3dmouseKeyDown(buttonNumber);
-				else if (SiButtonReleased(&siEvent) > 0)
-					on3dmouseKeyUp(buttonNumber);
-			}
+			if (SiButtonPressed(&siEvent) > 0)
+				on3DMouseKeyDown(buttonNumber);
+			else if (SiButtonReleased(&siEvent) > 0)
+				on3DMouseKeyUp(buttonNumber);
 		}
-		break;
+	}
+	break;
 
 	case SI_BUTTON_PRESS_EVENT:
-		//ccLog::Print(QString("SI_BUTTON_PRESS_EVENT"));
-		on3dmouseKeyDown(siEvent.u.hwButtonEvent.buttonNumber);
+		// ccLog::Print(QString("SI_BUTTON_PRESS_EVENT"));
+		on3DMouseKeyDown(siEvent.u.hwButtonEvent.buttonNumber);
 		break;
 
 	case SI_BUTTON_RELEASE_EVENT:
-		//ccLog::Print(QString("SI_BUTTON_RELEASE_EVENT"));
-		on3dmouseKeyUp(siEvent.u.hwButtonEvent.buttonNumber);
+		// ccLog::Print(QString("SI_BUTTON_RELEASE_EVENT"));
+		on3DMouseKeyUp(siEvent.u.hwButtonEvent.buttonNumber);
 		break;
 	case SI_CMD_EVENT:
-		//ccLog::Print(QString("SI_CMD_EVENT"));
+		// ccLog::Print(QString("SI_CMD_EVENT"));
 		if (siEvent.u.cmdEventData.pressed)
 		{
-			if(siEvent.u.cmdEventData.functionNumber == V3DCMD_MENU_OPTIONS)
+			if (siEvent.u.cmdEventData.functionNumber == V3DCMD_MENU_OPTIONS)
 				SiSetUiMode(m_siHandle, SI_UI_ALL_CONTROLS);
 			else
-			on3dmouseCMDKeyDown(siEvent.u.cmdEventData.functionNumber);
+				on3DMouseCMDKeyDown(siEvent.u.cmdEventData.functionNumber);
 		}
 		else
 		{
-			on3dmouseCMDKeyUp(siEvent.u.cmdEventData.functionNumber);
+			on3DMouseCMDKeyUp(siEvent.u.cmdEventData.functionNumber);
 		}
 		break;
 
 	default:
-		//ccLog::Print(QString("siEvent.type = %1").arg(siEvent.type));
+		// ccLog::Print(QString("siEvent.type = %1").arg(siEvent.type));
 		break;
 	}
 
 	return true;
+#endif
 }
 
 void Mouse3DInput::move3d(std::vector<float>& motionData)
 {
-	emit sigMove3d(motionData);
+	Q_EMIT sigMove3d(motionData);
 }
 
-void Mouse3DInput::on3dmouseKeyDown(int virtualKeyCode)
+void Mouse3DInput::on3DMouseKeyDown(int virtualKeyCode)
 {
-	emit sigOn3dmouseKeyDown(virtualKeyCode);
+	Q_EMIT sigOn3DMouseKeyDown(virtualKeyCode);
 }
 
-void Mouse3DInput::on3dmouseCMDKeyDown(int virtualCMDCode)
+void Mouse3DInput::on3DMouseCMDKeyDown(int virtualCMDCode)
 {
-	emit sigOn3dmouseCMDKeyDown(virtualCMDCode);
+	Q_EMIT sigOn3DMouseCMDKeyDown(virtualCMDCode);
 }
 
-void Mouse3DInput::on3dmouseKeyUp(int virtualKeyCode)
+void Mouse3DInput::on3DMouseKeyUp(int virtualKeyCode)
 {
-	emit sigOn3dmouseKeyUp(virtualKeyCode);
+	Q_EMIT sigOn3DMouseKeyUp(virtualKeyCode);
 }
 
-void Mouse3DInput::on3dmouseCMDKeyUp(int virtualCMDCode)
+void Mouse3DInput::on3DMouseCMDKeyUp(int virtualCMDCode)
 {
-	emit sigOn3dmouseCMDKeyUp(virtualCMDCode);
+	Q_EMIT sigOn3DMouseCMDKeyUp(virtualCMDCode);
 }
 
-void Mouse3DInput::GetMatrix(const std::vector<float>& vec, ccGLMatrixd& mat)
+void Mouse3DInput::GetMatrix(const std::vector<float>& motionData, ccGLMatrixd& mat)
 {
-	assert(vec.size() == 6);
+	assert(motionData.size() == 6);
 
-	float axis[3] = { -vec[3], vec[4], -vec[5] };
+#ifdef CC_3DMOUSE_HID
+	// Platform-neutral Rodrigues rotation: the rotation vector (rx, ry, rz)
+	// encodes both the axis (direction) and the angle (magnitude).
+	// The sign conventions are handled in Mouse3DInput_hid.cpp::processMotion.
+	//
+	// The rotation axis stays in camera space. rotateBaseViewMat() does
+	// viewMat = rotMat * viewMat (pre-multiply), which applies the rotation
+	// in camera space - exactly like the regular mouse drag does. This makes
+	// the rotation relative to the current view direction automatically.
+	CCVector3d axis(motionData[3], motionData[4], motionData[5]);
+	double     angle = axis.norm();
+	if (CCCoreLib::GreaterThanEpsilon(angle))
+	{
+		mat.initFromParameters(angle, axis, CCVector3d(0, 0, 0));
+	}
+	else
+	{
+		mat.toIdentity();
+	}
+#else
+	float axis[3]{-motionData[3], motionData[4], -motionData[5]};
 
 	Matrix Rd;
 	SPW_ArbitraryAxisToMatrix(Rd, axis, 1.0f);
@@ -309,35 +422,65 @@ void Mouse3DInput::GetMatrix(const std::vector<float>& vec, ccGLMatrixd& mat)
 		mat.getColumn(i)[1] = Rd[1][i];
 		mat.getColumn(i)[2] = Rd[2][i];
 	}
+#endif
 }
 
-void Mouse3DInput::Apply(const std::vector<float>& motionData, ccGLWindow* win)
+//! Applies a rotation (in camera space) to the view of a 3D window
+static void RotateView(const ccGLMatrixd& rotMat, ccGLWindowInterface* win)
+{
+	if (!win->isRotationAxisLocked())
+	{
+		win->rotateBaseViewMat(rotMat);
+		return;
+	}
+
+	// The rotation axis is locked: like the mouse, only turn about the locked axis and tilt the view,
+	// and update the angles from which the mouse rebuilds the view (otherwise the view would jump back
+	// at the next mouse drag)
+	double     angle_rad = 0.0;
+	CCVector3d axis;
+	CCVector3d translation;
+	rotMat.getParameters(angle_rad, axis, translation);
+
+	double vertAngle_rad  = 0.0;
+	double orthoAngle_rad = 0.0;
+	win->getLockedRotationAngles(vertAngle_rad, orthoAngle_rad);
+
+	// the rotation about the screen vertical axis turns the view about the locked axis
+	vertAngle_rad = std::remainder(vertAngle_rad + angle_rad * axis.y, 2 * M_PI);
+	// the rotation about the screen horizontal axis tilts the view (in the same range as with the mouse)
+	orthoAngle_rad = std::clamp(orthoAngle_rad + angle_rad * axis.x, -M_PI_2, M_PI_2);
+
+	win->setLockedRotationAngles(vertAngle_rad, orthoAngle_rad);
+}
+
+void Mouse3DInput::Apply(const std::vector<float>& motionData, ccGLWindowInterface* win)
 {
 	assert(motionData.size() >= 6);
 
-	//no active window?
+	// no active window?
 	if (!win)
 	{
 		return;
 	}
 
-	//copy input parameters
+	// copy input parameters
 	std::vector<float> vec = motionData;
 
-	//view parameters
-	const ccViewportParameters& viewParams = win->getViewportParameters();
-	bool bubbleViewMode = win->bubbleViewModeEnabled();
+	// view parameters
+	const ccViewportParameters& viewParams     = win->getViewportParameters();
+	bool                        bubbleViewMode = win->bubbleViewModeEnabled();
 
-	//panning or zooming
+	// panning or zooming
 	if (!bubbleViewMode)
 	{
 		double X = vec[0];
 		double Y = vec[1];
 		double Z = vec[2];
 
-		//ccLog::Print(QString("Mouse translation: (%1,%2,%3)").arg(X).arg(Y).arg(Z));
+		// ccLog::Print(QString("Mouse translation: (%1,%2,%3)").arg(X).arg(Y).arg(Z));
 
-		//Zoom: object moves closer/away (only for ortho. mode)
+		// Zoom: object moves closer/away (only for ortho. mode)
 		if (!viewParams.perspectiveView && CCCoreLib::GreaterThanEpsilon(std::abs(Z)))
 		{
 			ccViewportParameters viewParams = win->getViewportParameters();
@@ -346,19 +489,19 @@ void Mouse3DInput::Apply(const std::vector<float>& motionData, ccGLWindow* win)
 			Z = 0.0;
 		}
 
-		//Zoom & Panning: camera moves right/left + up/down + backward/forward (only for perspective mode)
-		if (	CCCoreLib::GreaterThanEpsilon(std::abs(X))
-		    ||	CCCoreLib::GreaterThanEpsilon(std::abs(Y))
-		    ||	CCCoreLib::GreaterThanEpsilon(std::abs(Z)) )
+		// Zoom & Panning: camera moves right/left + up/down + backward/forward (only for perspective mode)
+		if (CCCoreLib::GreaterThanEpsilon(std::abs(X))
+		    || CCCoreLib::GreaterThanEpsilon(std::abs(Y))
+		    || CCCoreLib::GreaterThanEpsilon(std::abs(Z)))
 		{
 			if (viewParams.perspectiveView)
 			{
-				double distanceToWidthRatio = win->getViewportParameters().computeDistanceToWidthRatio();
+				double distanceToWidthRatio = win->getViewportParameters().computeDistanceToWidthRatio(win->glWidth(), win->glHeight());
 				X *= distanceToWidthRatio;
 				Y *= distanceToWidthRatio;
 			}
 
-			double screenWidth3D = viewParams.computeWidthAtFocalDist();
+			double screenWidth3D = viewParams.computeWidthAtFocalDist(win->glWidth(), win->glHeight());
 			if (viewParams.objectCenteredView)
 			{
 				screenWidth3D = -screenWidth3D;
@@ -368,31 +511,31 @@ void Mouse3DInput::Apply(const std::vector<float>& motionData, ccGLWindow* win)
 		}
 	}
 
-	//rotation
-	if (	CCCoreLib::GreaterThanEpsilon(std::abs(vec[3]))
-	    ||	CCCoreLib::GreaterThanEpsilon(std::abs(vec[4]))
-	    ||	CCCoreLib::GreaterThanEpsilon(std::abs(vec[5])) )
+	// rotation
+	if (CCCoreLib::GreaterThanEpsilon(std::abs(vec[3]))
+	    || CCCoreLib::GreaterThanEpsilon(std::abs(vec[4]))
+	    || CCCoreLib::GreaterThanEpsilon(std::abs(vec[5])))
 	{
-		//ccLog::Print(QString("Mouse rotation: (%1,%2,%3)").arg(vec[3]).arg(vec[4]).arg(vec[5]));
+		// ccLog::Print(QString("Mouse rotation: (%1,%2,%3)").arg(vec[3]).arg(vec[4]).arg(vec[5]));
 
-		//get corresponding rotation matrix
+		// get corresponding rotation matrix
 		ccGLMatrixd rotMat;
 		if (!bubbleViewMode)
 		{
 			Mouse3DInput::GetMatrix(vec, rotMat);
-			win->rotateBaseViewMat(viewParams.objectCenteredView ? rotMat : rotMat.inverse());
+			RotateView(viewParams.objectCenteredView ? rotMat : rotMat.inverse(), win);
 		}
 		else
 		{
-			//Ry = horizontal
-			//Rx = vertical
+			// Ry = horizontal
+			// Rx = vertical
 
-			//rotation about the sensor Z axis
+			// rotation about the sensor Z axis
 			const ccGLMatrixd& viewMat = win->getViewportParameters().viewMat;
-			CCVector3d axis = viewMat.getColumnAsVec3D(2);
+			CCVector3d         axis    = viewMat.getColumnAsVec3D(2);
 			rotMat.initFromParameters(-vec[4], axis, CCVector3d(0, 0, 0));
 
-			//rotation about the local X axis
+			// rotation about the local X axis
 			ccGLMatrixd rotX;
 			rotX.initFromParameters(vec[3], CCVector3d(1, 0, 0), CCVector3d(0, 0, 0));
 			rotMat = rotX * rotMat;
@@ -406,5 +549,35 @@ void Mouse3DInput::Apply(const std::vector<float>& motionData, ccGLWindow* win)
 		win->showPivotSymbol(false);
 	}
 
-	win->redraw();
+	// Enable LOD during 3D mouse interaction so that large clouds/meshes are
+	// decimated while moving - just like normal mouse interaction does.
+	// LOD stays enabled after the movement stops and the standard LOD refresh
+	// cycle progressively restores full quality.
+	bool hasMotion = false;
+	for (size_t i = 0; i < 6; ++i)
+	{
+		if (CCCoreLib::GreaterThanEpsilon(std::abs(vec[i])))
+		{
+			hasMotion = true;
+			break;
+		}
+	}
+
+	if (hasMotion)
+	{
+		// Enable LOD and signal that the 3D mouse is driving the view. This
+		// sets the internal 'mouse moved' flag so that meshes are decimated
+		// during interaction (just like dragging the regular mouse), and LOD
+		// is activated so that large clouds are rendered at a reduced level
+		// until the movement stops.
+		win->setLODEnabled(true);
+		win->set3DMouseActive(true);
+		win->redraw(false, true);
+	}
+	else
+	{
+		// No motion (e.g. a zero report) - let the LOD refinement cycle run.
+		win->set3DMouseActive(false);
+		win->redraw();
+	}
 }

@@ -76,14 +76,14 @@ public:
 	double minMaxDensity[2];
 };
 
-StereogramWidget::StereogramWidget(QWidget *parent)
+StereogramWidget::StereogramWidget(QWidget* parent/*=nullptr*/)
 	: QLabel(QString(), parent)
 	, m_angularStep_deg(0)
 	, m_densityGrid(nullptr)
 	, m_meanDipDir_deg(-1.0)
 	, m_meanDip_deg(-1.0)
 	, m_densityColorScale(nullptr)
-	, m_densityColorScaleSteps(ccColorScale::MAX_STEPS < 256 ? ccColorScale::MAX_STEPS : 256) //DGM: we can't pass a constant initializer (MAX_STEPS) by reference
+	, m_densityColorScaleSteps(std::max(ccColorScale::MAX_STEPS, 256u))
 	, m_ticksFreq(3)
 	, m_showHSVRing(false)
 	, m_trackMouseClick(false)
@@ -208,19 +208,23 @@ bool StereogramWidget::init(double angularStep_deg,
 			PointCoordinateType dip = 0;
 			ccNormalVectors::ConvertNormalToDipAndDipDir(N,dip,dipDir);
 
-			//unsigned iDip = static_cast<unsigned>(floor(static_cast<double>(dip)/densityGrid->step_deg));
+			//unsigned iDip = static_cast<unsigned>(static_cast<double>(dip) / densityGrid->step_deg); //static_cast is equivalent to floor if value >= 0
 			//if (iDip == densityGrid->dSteps)
 			//	iDip--;
-			unsigned iDipDir = static_cast<unsigned>(floor(static_cast<double>(dipDir)/densityGrid->step_deg));
+			unsigned iDipDir = static_cast<unsigned>(dipDir / densityGrid->step_deg); //static_cast is equivalent to floor if value >= 0
 			if (iDipDir == densityGrid->ddSteps)
+			{
 				iDipDir--;
+			}
 
 			double dip_rad = CCCoreLib::DegreesToRadians( dip );
 			double R = sin(dip_rad) / (1.0 + cos(dip_rad));
 
-			unsigned iR = static_cast<unsigned>(floor(static_cast<double>(R)/densityGrid->step_R));
+			unsigned iR = static_cast<unsigned>(R / densityGrid->step_R); //static_cast is equivalent to floor if value >= 0
 			if (iR == densityGrid->rSteps)
+			{
 				iR--;
+			}
 
 			densityGrid->grid[iR + iDipDir * densityGrid->rSteps] += weight;
 
@@ -237,12 +241,12 @@ bool StereogramWidget::init(double angularStep_deg,
 		{
 			Nmean.normalize();
 			CCVector3 N(static_cast<PointCoordinateType>(Nmean.x),
-				static_cast<PointCoordinateType>(Nmean.y),
-				static_cast<PointCoordinateType>(Nmean.z));
+						static_cast<PointCoordinateType>(Nmean.y),
+						static_cast<PointCoordinateType>(Nmean.z));
 
 			PointCoordinateType dipDir = 0;
 			PointCoordinateType dip = 0;
-			ccNormalVectors::ConvertNormalToDipAndDipDir(N,dip,dipDir);
+			ccNormalVectors::ConvertNormalToDipAndDipDir(N, dip, dipDir);
 
 			m_meanDipDir_deg = static_cast<double>(dipDir);
 			m_meanDip_deg = static_cast<double>(dip);
@@ -254,23 +258,11 @@ bool StereogramWidget::init(double angularStep_deg,
 
 		//compute min and max density
 		{
-			//DGM: only supported on C++x11!
-			//std::pair<double*,double*> minmax = std::minmax_element(densityGrid->grid,densityGrid->grid+cellCount);
-			//densityGrid->minMaxDensity[0] = *minmax.first;
-			//densityGrid->minMaxDensity[1] = *minmax.second;
-
-			densityGrid->minMaxDensity[0] = densityGrid->grid[0];
-			densityGrid->minMaxDensity[1] = densityGrid->grid[0];
-			for (unsigned j=1; j<cellCount; ++j)
-			{
-				if (densityGrid->grid[j] < densityGrid->minMaxDensity[0])
-					densityGrid->minMaxDensity[0] = densityGrid->grid[j];
-				else if (densityGrid->grid[j] > densityGrid->minMaxDensity[1])
-					densityGrid->minMaxDensity[1] = densityGrid->grid[j];
-			}
+			std::pair<double*, double*> minmax = std::minmax_element(densityGrid->grid, densityGrid->grid + cellCount);
+			densityGrid->minMaxDensity[0] = *minmax.first;
+			densityGrid->minMaxDensity[1] = *minmax.second;
 		}
 
-		//pDlg.hide();
 		pDlg.stop();
 		QApplication::processEvents();
 	}
@@ -296,7 +288,7 @@ void StereogramWidget::mousePressEvent(QMouseEvent* e)
 		if (e->button() == Qt::LeftButton)
 		{
 			QRect contentRect = contentsRect();
-			QPoint pos = e->pos() - contentRect.topLeft();
+			QPoint pos = e->position().toPoint() - contentRect.topLeft();
 			QPoint AB = pos - m_center;
 			int squareDistToCenter = AB.x() * AB.x() + AB.y() * AB.y();
 			if (squareDistToCenter <= m_radius * m_radius)
@@ -310,7 +302,7 @@ void StereogramWidget::mousePressEvent(QMouseEvent* e)
 				if (m_clickDipDir_deg >= 360.0)
 					m_clickDipDir_deg -= 360.0;
 
-				emit pointClicked(m_clickDip_deg, m_clickDipDir_deg);
+				Q_EMIT pointClicked(m_clickDip_deg, m_clickDipDir_deg);
 				e->accept();
 				return;
 			}
@@ -328,7 +320,7 @@ void StereogramWidget::enableMouseTracking(bool state, double dipSpan_deg/*=30*/
 		m_clickDipSpan_deg = dipSpan_deg;
 		m_clickDipDirSpan_deg = dipDirSpan_deg;
 		//to give to the parent dialog some feedback about the current marker position!
-		emit pointClicked(m_clickDip_deg, m_clickDipDir_deg);
+		Q_EMIT pointClicked(m_clickDip_deg, m_clickDipDir_deg);
 	}
 }
 
@@ -391,7 +383,7 @@ void StereogramWidget::paintEvent(QPaintEvent* event)
 			}
 		}
 
-		diameter = newDiameter; 
+		diameter = newDiameter;
 	}
 
 	//outer circle
@@ -441,7 +433,7 @@ void StereogramWidget::paintEvent(QPaintEvent* event)
 			if (dipDir_deg < 360.0)
 			{
 				const double dipDir_rad = CCCoreLib::DegreesToRadians( dipDir_deg );
-				
+
 				QPoint X(	 static_cast<int>(sin( dipDir_rad ) * radius),
 							-static_cast<int>(cos( dipDir_rad ) * radius) );
 
@@ -456,9 +448,6 @@ void StereogramWidget::paintEvent(QPaintEvent* event)
 	//draw density map
 	if (m_densityGrid && m_densityColorScale && m_densityGrid->grid && m_densityGrid->minMaxDensity[1] != 0)
 	{
-		assert(m_densityColorScale);
-		assert(m_densityGrid->grid);
-
 		QBrush brush;
 		brush.setStyle(Qt::SolidPattern);
 		painter.setPen(Qt::NoPen);
@@ -466,7 +455,7 @@ void StereogramWidget::paintEvent(QPaintEvent* event)
 
 		const double* d = m_densityGrid->grid;
 		const double step_rad = CCCoreLib::DegreesToRadians( m_densityGrid->step_deg );
-		
+
 		for (unsigned j = 0; j < m_densityGrid->ddSteps; ++j)
 		{
 			double dipDir0_rad = (j    ) * step_rad;
@@ -480,12 +469,19 @@ void StereogramWidget::paintEvent(QPaintEvent* event)
 			{
 				if (*d != 0)
 				{
-					double relPos = (*d)/ m_densityGrid->minMaxDensity[1];
+					double relPos = (*d) / m_densityGrid->minMaxDensity[1];
 					const ccColor::Rgb* col = m_densityColorScale->getColorByRelativePos(relPos, m_densityColorScaleSteps);
-					brush.setColor(QColor(	static_cast<int>(col->r),
-											static_cast<int>(col->g),
-											static_cast<int>(col->b),
-											255));
+					if (col)
+					{
+						brush.setColor(QColor(	static_cast<int>(col->r),
+												static_cast<int>(col->g),
+												static_cast<int>(col->b),
+												255));
+					}
+					else
+					{
+						assert(false);
+					}
 					painter.setBrush(brush);
 
 					//stereographic projection
@@ -623,16 +619,16 @@ StereogramDialog::StereogramDialog(ccMainAppInterface* app)
 		m_classifWidget->setDensityColorScale(ccColorScalesManager::GetDefaultScale());
 	}
 
-	connect(colorScaleStepsSpinBox,		static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), this, &StereogramDialog::onDensityColorStepsChanged);
-	connect(ticksFreqSpinBox,			static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), this, &StereogramDialog::onTicksFreqChanged);
+	connect(colorScaleStepsSpinBox,		qOverload<int>(&QSpinBox::valueChanged), this, &StereogramDialog::onDensityColorStepsChanged);
+	connect(ticksFreqSpinBox,			qOverload<int>(&QSpinBox::valueChanged), this, &StereogramDialog::onTicksFreqChanged);
 	connect(showHSVColorsCheckBox,		&QAbstractButton::toggled, this, &StereogramDialog::onHSVColorsToggled);
 
 	//interactive filtering mechanism
 	connect(filterFacetsGroupBox,		&QGroupBox::toggled, this, &StereogramDialog::onFilterEnabled);
-	connect(dipSpanDoubleSpinBox,		static_cast<void (QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged), this, &StereogramDialog::onFilterSizeChanged);
-	connect(dipDirSpanDoubleSpinBox,	static_cast<void (QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged), this, &StereogramDialog::onFilterSizeChanged);
-	connect(dipDoubleSpinBox,			static_cast<void (QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged), this, &StereogramDialog::onFilterCenterChanged);
-	connect(dipDirDoubleSpinBox,		static_cast<void (QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged), this, &StereogramDialog::onFilterCenterChanged);
+	connect(dipSpanDoubleSpinBox,		qOverload<double>(&QDoubleSpinBox::valueChanged), this, &StereogramDialog::onFilterSizeChanged);
+	connect(dipDirSpanDoubleSpinBox,	qOverload<double>(&QDoubleSpinBox::valueChanged), this, &StereogramDialog::onFilterSizeChanged);
+	connect(dipDoubleSpinBox,			qOverload<double>(&QDoubleSpinBox::valueChanged), this, &StereogramDialog::onFilterCenterChanged);
+	connect(dipDirDoubleSpinBox,		qOverload<double>(&QDoubleSpinBox::valueChanged), this, &StereogramDialog::onFilterCenterChanged);
 	connect(m_classifWidget,			&StereogramWidget::pointClicked, this, &StereogramDialog::onPointClicked);
 	connect(exportPushButton,			&QAbstractButton::clicked, this, &StereogramDialog::exportCurrentSelection);
 }
@@ -677,6 +673,8 @@ void StereogramDialog::closeEvent(QCloseEvent* e)
 	{
 		updateFacetsFilter(false);
 	}
+
+	QDialog::closeEvent(e);
 }
 
 void StereogramDialog::onFilterEnabled(bool state)
@@ -907,15 +905,23 @@ void StereogramDialog::exportCurrentSelection()
 		ccGenericPointCloud* subset = cloud->createNewCloudFromVisibilitySelection();
 		if (subset)
 		{
-			if (subset->size() != 0)
+			if (subset == cloud)
 			{
-				subset->setName(cloud->getName() + selectionSuffix);
-				m_app->addToDB(subset);
+				ccLog::Warning("All points fall inside the selection");
 			}
 			else
 			{
-				delete subset;
-				subset = nullptr;
+				if (subset->size() != 0)
+				{
+					subset->setName(cloud->getName() + selectionSuffix);
+					m_app->addToDB(subset);
+				}
+				else
+				{
+					ccLog::Warning("No point falls inside the selection");
+					delete subset;
+					subset = nullptr;
+				}
 			}
 		}
 	}

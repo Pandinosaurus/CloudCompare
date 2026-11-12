@@ -1,38 +1,39 @@
-//##########################################################################
-//#                                                                        #
-//#                              CLOUDCOMPARE                              #
-//#                                                                        #
-//#  This program is free software; you can redistribute it and/or modify  #
-//#  it under the terms of the GNU General Public License as published by  #
-//#  the Free Software Foundation; version 2 or later of the License.      #
-//#                                                                        #
-//#  This program is distributed in the hope that it will be useful,       #
-//#  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
-//#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
-//#  GNU General Public License for more details.                          #
-//#                                                                        #
-//#          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
-//#                                                                        #
-//##########################################################################
+#pragma once
 
-#ifndef CC_DEPTH_BUFFER_HEADER
-#define CC_DEPTH_BUFFER_HEADER
+// ##########################################################################
+// #                                                                        #
+// #                              CLOUDCOMPARE                              #
+// #                                                                        #
+// #  This program is free software; you can redistribute it and/or modify  #
+// #  it under the terms of the GNU General Public License as published by  #
+// #  the Free Software Foundation; version 2 or later of the License.      #
+// #                                                                        #
+// #  This program is distributed in the hope that it will be useful,       #
+// #  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
+// #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
+// #  GNU General Public License for more details.                          #
+// #                                                                        #
+// #          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
+// #                                                                        #
+// ##########################################################################
 
-//local
+// Local
 #include "qCC_db.h"
+
+// CCCoreLib
 #include <CCGeom.h>
 
-//System
+// System
 #include <vector>
 
 //! Sensor "depth map"
 /** Contains an array of depth values (along each scanned direction) and its dimensions.
-	This array corresponds roughly to what have been "seen" by the sensor during
-	acquisition (the 3D points are simply projected in the sensor frame).
+    This array corresponds roughly to what have been "seen" by the sensor during
+    acquisition (the 3D points are simply projected in the sensor frame).
 **/
 class QCC_DB_LIB_API ccDepthBuffer
 {
-public:
+  public:
 	//! Default constructor
 	ccDepthBuffer();
 	//! Destructor
@@ -58,5 +59,3 @@ public:
 	**/
 	int fillHoles();
 };
-
-#endif //CC_DEPTH_BUFFER_HEADER

@@ -60,13 +60,12 @@ QStatusBar
        </sizepolicy>
       </property>
       <property name="styleSheet">
-       <string notr="true">QFrame{
+       <string notr="true">QFrame#GLframe
+{
 	border: 2px solid white;
 	border-radius: 10px;
 	background: qlineargradient(x1:0, y1:0, x2:0, y2:1,stop:0 rgb(10,102,151), stop:1 rgb(0,0,0));
- }
-
-</string>
+}</string>
       </property>
       <property name="frameShape">
        <enum>QFrame::Box</enum>
@@ -84,7 +83,7 @@ QStatusBar
      <x>0</x>
      <y>0</y>
      <width>800</width>
-     <height>21</height>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuOptions">
@@ -251,8 +250,8 @@ QStatusBar
   </action>
   <action name="actionEditCamera">
    <property name="icon">
-    <iconset>
-     <normaloff>:/CC/images/ccCamera.png</normaloff>:/CC/images/ccCamera.png</iconset>
+    <iconset resource="../../qCC/icons.qrc">
+     <normaloff>:/CC/images/photo-camera.svg</normaloff>:/CC/images/photo-camera.svg</iconset>
    </property>
    <property name="text">
     <string>Camera parameters</string>
@@ -663,6 +662,10 @@ QStatusBar
   <action name="actionLockRotationVertAxis">
    <property name="checkable">
     <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../../qCC/icons.qrc">
+     <normaloff>:/CC/images/lockedAxis.png</normaloff>:/CC/images/lockedAxis.png</iconset>
    </property>
    <property name="text">
     <string>Lock rotation around vert. axis</string>

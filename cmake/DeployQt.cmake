@@ -1,23 +1,26 @@
-find_package( Qt5
+find_package( Qt6
 	COMPONENTS
 		Core
 	REQUIRED
 )
 
-get_target_property( qmake_location Qt5::qmake IMPORTED_LOCATION )
-get_filename_component( qt5_bin_dir ${qmake_location} DIRECTORY )
+get_target_property( qmake_location Qt6::qmake IMPORTED_LOCATION )
+get_filename_component( qt6_bin_dir ${qmake_location} DIRECTORY )
 
-if ( APPLE )
-	find_program( mac_deploy_qt macdeployqt HINTS "${qt5_bin_dir}" )
+if ( NOT OPTION_DEPLOY_QT )
+	# the applications are installed without their dependencies (see DeployQt)
+	if ( APPLE )
+		find_program( mac_deploy_qt macdeployqt HINTS "${qt6_bin_dir}" )
 
-	if( NOT EXISTS "${mac_deploy_qt}" )
-		message( FATAL_ERROR "macdeployqt not found in ${qt5_bin_dir}" )
-	endif()
-elseif( WIN32 )
-	find_program( win_deploy_qt windeployqt HINTS "${qt5_bin_dir}" )
+		if( NOT EXISTS "${mac_deploy_qt}" )
+			message( FATAL_ERROR "macdeployqt not found in ${qt6_bin_dir}" )
+		endif()
+	elseif( WIN32 )
+		find_program( win_deploy_qt windeployqt HINTS "${qt6_bin_dir}" )
 
-	if( NOT EXISTS "${win_deploy_qt}" )
-		message( FATAL_ERROR "windeployqt not found in ${qt5_bin_dir}" )
+		if( NOT EXISTS "${win_deploy_qt}" )
+			message( FATAL_ERROR "windeployqt not found in ${qt6_bin_dir}" )
+		endif()
 	endif()
 endif()
 
@@ -40,15 +43,26 @@ function( DeployQt )
 
 	# For readability
 	set( deploy_path "${DEPLOY_QT_DEPLOY_PATH}" )
-	
+
+	if( NOT OPTION_DEPLOY_QT )
+		# The application is installed like on Linux (install_ext), its dependencies
+		# are found where they are installed (e.g. by a package manager)
+		return()
+	endif()
+
 	message( STATUS "Installing ${DEPLOY_QT_TARGET} to ${deploy_path}" )
-	
+
 	get_target_property( name ${DEPLOY_QT_TARGET} NAME )
-		
+
 	if ( APPLE )
 		set( app_name "${name}.app" )
-		set( app_path "${CMAKE_CURRENT_BINARY_DIR}/${app_name}" )
-		set( temp_dir "${CMAKE_CURRENT_BINARY_DIR}/deployqt" )
+		if (CMAKE_CONFIGURATION_TYPES)
+			set(app_path "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/${app_name}")
+			set(temp_dir "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/deployqt")
+		else ()
+			set(app_path "${CMAKE_CURRENT_BINARY_DIR}/${app_name}")
+			set(temp_dir "${CMAKE_CURRENT_BINARY_DIR}/deployqt")
+		endif ()
 		set( temp_app_path "${temp_dir}/$<CONFIG>/${app_name}" )
 
 		add_custom_command(
@@ -66,8 +80,9 @@ function( DeployQt )
 		install(
 			DIRECTORY ${temp_app_path}
 			DESTINATION "${deploy_path}"
+			USE_SOURCE_PERMISSIONS
 		)
-	elseif( WIN32 )	
+	elseif( WIN32 )
 		set( app_name "${name}.exe" )
 		if( CMAKE_CONFIGURATION_TYPES )
 			set( app_path "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/${app_name}" )
@@ -78,6 +93,15 @@ function( DeployQt )
 		endif()
 		set( temp_app_path "${temp_dir}/${app_name}" )
 
+		set( deploy_qt_options
+			--no-compiler-runtime
+			--no-quick-import
+			--no-system-d3d-compiler
+			--openglwidgets
+			--concurrent
+			--verbose=1
+		)
+
 		add_custom_command(
 			TARGET ${DEPLOY_QT_TARGET}
 			POST_BUILD
@@ -86,15 +110,10 @@ function( DeployQt )
 			COMMAND ${CMAKE_COMMAND} -E copy ${app_path} ${temp_app_path}
 			COMMAND "${win_deploy_qt}"
 				${temp_app_path}
-				--no-angle
-				--no-opengl-sw
-				--no-quick-import
-				--no-system-d3d-compiler
-				--concurrent				
-				--verbose=1
+				${deploy_qt_options}
 			VERBATIM
 		)
-	
+
 		if( NOT CMAKE_CONFIGURATION_TYPES )
 			install(
 				DIRECTORY ${temp_dir}/
@@ -106,13 +125,13 @@ function( DeployQt )
 				CONFIGURATIONS Debug
 				DESTINATION ${deploy_path}_debug
 			)
-		
+
 			install(
 				DIRECTORY ${temp_dir}/
 				CONFIGURATIONS Release
 				DESTINATION ${deploy_path}
 			)
-		
+
 			install(
 				DIRECTORY ${temp_dir}/
 				CONFIGURATIONS RelWithDebInfo
@@ -123,4 +142,4 @@ function( DeployQt )
 endfunction()
 
 unset( qmake_location )
-unset( qt5_bin_dir )
+unset( qt6_bin_dir )

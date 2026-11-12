@@ -1,43 +1,44 @@
-//##########################################################################
-//#                                                                        #
-//#                              CLOUDCOMPARE                              #
-//#                                                                        #
-//#  This program is free software; you can redistribute it and/or modify  #
-//#  it under the terms of the GNU General Public License as published by  #
-//#  the Free Software Foundation; version 2 or later of the License.      #
-//#                                                                        #
-//#  This program is distributed in the hope that it will be useful,       #
-//#  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
-//#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
-//#  GNU General Public License for more details.                          #
-//#                                                                        #
-//#          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
-//#                                                                        #
-//##########################################################################
+#pragma once
 
-#ifndef CC_ASCII_SAVE_DIALOG_HEADER
-#define CC_ASCII_SAVE_DIALOG_HEADER
+// ##########################################################################
+// #                                                                        #
+// #                              CLOUDCOMPARE                              #
+// #                                                                        #
+// #  This program is free software; you can redistribute it and/or modify  #
+// #  it under the terms of the GNU General Public License as published by  #
+// #  the Free Software Foundation; version 2 or later of the License.      #
+// #                                                                        #
+// #  This program is distributed in the hope that it will be useful,       #
+// #  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
+// #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
+// #  GNU General Public License for more details.                          #
+// #                                                                        #
+// #          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
+// #                                                                        #
+// ##########################################################################
 
-//local
+// Local
 #include "qCC_io.h"
 
-//Qt
+// Qt
 #include <QDialog>
 
-class Ui_AsciiSaveDialog;
+namespace Ui
+{
+	class AsciiSaveDialog;
+}
 
 //! Dialog for configuration of ASCII files saving sequence
 class QCC_IO_LIB_API AsciiSaveDlg : public QDialog
 {
 	Q_OBJECT
 
-public:
-
+  public:
 	//! Default constructor
-	explicit AsciiSaveDlg(QWidget* parent = 0);
+	explicit AsciiSaveDlg(QWidget* parent = nullptr);
 
 	//! Destructor
-	virtual ~AsciiSaveDlg();
+	~AsciiSaveDlg() override;
 
 	//! Returns whether columns names should be be saved in header
 	bool saveColumnsNamesHeader() const;
@@ -54,9 +55,9 @@ public:
 
 	//! Sets separator (index)
 	/** 0 = space
-		1 = semicolon
-		2 = comma
-		3 = tab
+	    1 = semicolon
+	    2 = comma
+	    3 = tab
 	**/
 	void setSeparatorIndex(int index);
 	//! Returns separator index
@@ -87,19 +88,14 @@ public:
 	//! Returns whether to save the alpha (transparency) channel
 	bool saveAlphaChannel() const;
 
-protected:
-
+  protected:
 	//! Saves dialog state to persistent settings
 	void acceptAndSaveSettings();
 
-protected:
-
+  protected:
 	//! Associated UI
-	Ui_AsciiSaveDialog* m_ui;
+	std::unique_ptr<Ui::AsciiSaveDialog> m_ui;
 
 	//! Inits dialog state from persistent settings
 	void initFromPersistentSettings();
 };
-
-#endif //CC_ASCII_SAVE_DIALOG_HEADER
-

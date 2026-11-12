@@ -61,7 +61,7 @@ typedef uint32_t t_ply_uint32;
  * Constants 
  * ---------------------------------------------------------------------- */
 #define WORDSIZE 256
-#define LINESIZE 1024
+#define LINESIZE 2048
 #define BUFFERSIZE (8*1024)
 
 typedef enum e_ply_io_mode_ {
@@ -352,8 +352,14 @@ static int ply_read_header_magic(p_ply ply) {
 /* ----------------------------------------------------------------------
  * Read support functions
  * ---------------------------------------------------------------------- */
-p_ply ply_open(const char *name, p_ply_error_cb error_cb, 
-        long idata, void *pdata) {
+#ifdef _MSC_VER
+p_ply ply_open(const wchar_t *name,
+#else
+p_ply ply_open(const char *name,
+#endif
+        p_ply_error_cb error_cb,
+        long idata,
+       void *pdata) {
     FILE *fp = NULL; 
     p_ply ply = ply_alloc();
     if (error_cb == NULL) error_cb = ply_error_cb;
@@ -371,7 +377,11 @@ p_ply ply_open(const char *name, p_ply_error_cb error_cb,
         return NULL;
     }
     assert(name);
-    fp = fopen(name, "rb");
+#ifdef _MSC_VER
+	fp = _wfopen(name, L"rb");
+#else
+	fp = fopen(name, "rb");
+#endif
     if (!fp) {
         error_cb(ply, "Unable to open file");
         free(ply);
@@ -475,7 +485,12 @@ int ply_read(p_ply ply) {
 /* ----------------------------------------------------------------------
  * Write support functions
  * ---------------------------------------------------------------------- */
-p_ply ply_create(const char *name, e_ply_storage_mode storage_mode, 
+#ifdef _MSC_VER
+p_ply ply_create(const wchar_t *name,
+#else
+p_ply ply_create(const char *name,
+#endif
+        e_ply_storage_mode storage_mode, 
         p_ply_error_cb error_cb, long idata, void *pdata) {
     FILE *fp = NULL;
     p_ply ply = ply_alloc();
@@ -490,7 +505,11 @@ p_ply ply_create(const char *name, e_ply_storage_mode storage_mode,
         return NULL;
     }
     assert(name && storage_mode <= PLY_DEFAULT);
-    fp = fopen(name, "wb");
+#ifdef _MSC_VER
+	fp = _wfopen(name, L"wb");
+#else
+	fp = fopen(name, "wb");
+#endif
     if (!fp) {
         error_cb(ply, "Unable to create file");
         free(ply);
@@ -663,7 +682,7 @@ int ply_write(p_ply ply, double value) {
         ply->wlength = 0;
     }
     if (!ply->odriver->ohandler[type](ply, value)) {
-        ply_ferror(ply, "Failed writing %s of %s %d (%s: %s)", 
+        ply_ferror(ply, "Failed writing %s of %s %ld (%s: %s)",
                     property->name, element->name, 
                     ply->winstance_index, 
                     ply->odriver->name, ply_type_list[type]);
@@ -833,7 +852,7 @@ static int ply_read_list_property(p_ply ply, p_ply_element element,
     p_ply_ihandler handler = driver[property->length_type];
     double length;
     if (!handler(ply, &length)) {
-        ply_ferror(ply, "Error reading '%s' of '%s' number %d",
+        ply_ferror(ply, "Error reading '%s' of '%s' number %ld",
                 property->name, element->name, argument->instance_index);
         return 0;
     }
@@ -853,7 +872,7 @@ static int ply_read_list_property(p_ply ply, p_ply_element element,
         argument->value_index = l;
         if (!handler(ply, &argument->value)) {
             ply_ferror(ply, "Error reading value number %d of '%s' of "
-                    "'%s' number %d", l+1, property->name, 
+                    "'%s' number %ld", l+1, property->name,
                     element->name, argument->instance_index);
             return 0;
         }

@@ -1,3 +1,5 @@
+#pragma once
+
 //##########################################################################
 //#                                                                        #
 //#                      CLOUDCOMPARE PLUGIN: qSRA                         #
@@ -15,9 +17,6 @@
 //#                                                                        #
 //##########################################################################
 
-#ifndef QSRA_MAP_GL_WINDOW_HEADER
-#define QSRA_MAP_GL_WINDOW_HEADER
-
 //qCC
 #include <ccGLWindow.h>
 
@@ -30,33 +29,24 @@ class ccMapWindow : public ccGLWindow
 public:
 
 	//! Default constructor
-	explicit ccMapWindow(ccGLWindowParent* parent = 0)
-		: ccGLWindow(0, parent, true)
-		, m_sfForRampDisplay(0)
+	explicit ccMapWindow(QOpenGLWidget* parent = nullptr)
+		: ccGLWindow(nullptr, parent, true)
+		, m_sfForRampDisplay(nullptr)
 		, m_showSF(true)
 	{}
 
 	//! Destructor
 	virtual ~ccMapWindow()
 	{
-		setAssociatedScalarField(0);
+		setAssociatedScalarField(nullptr);
 	}
 
 	//! Sets associated scalar-field
 	/** This scalar field will be used for color ramp display.
 	**/
-	void setAssociatedScalarField(ccScalarField* sf)
+	void setAssociatedScalarField(ccScalarField::Shared sf)
 	{
-		if (m_sfForRampDisplay != sf)
-		{
-			if (m_sfForRampDisplay)
-				m_sfForRampDisplay->release();
-			
-			m_sfForRampDisplay = sf;
-			
-			if (m_sfForRampDisplay)
-				m_sfForRampDisplay->link();
-		}
+		m_sfForRampDisplay = sf;
 	}
 
 	//! Whether to show associated SF or not
@@ -66,28 +56,25 @@ public:
 	bool sfShown() const { return m_showSF; }
 
 	//! Returns associated scalar field
-	ccScalarField* getAssociatedScalarField() const { return m_sfForRampDisplay; }
+	ccScalarField::Shared getAssociatedScalarField() const { return m_sfForRampDisplay; }
 
-	//inherited fro ccGLWindow
-	virtual void getContext(CC_DRAW_CONTEXT& context)
+	//inherited from ccGLWindow
+	void getContext(CC_DRAW_CONTEXT& context) override
 	{
 		ccGLWindow::getContext(context);
 
 		if (m_showSF)
 		{
 			//override sf that will be used for color ramp display
-			context.sfColorScaleToDisplay = m_sfForRampDisplay;
+			context.sfColorScaleToDisplay = m_sfForRampDisplay.get();
 		}
 	}
 
 protected:
 
 	//! Associated scalar field
-	ccScalarField* m_sfForRampDisplay;
+	ccScalarField::Shared m_sfForRampDisplay;
 
 	//! Whether to show or not the associated SF
 	bool m_showSF;
-
 };
-
-#endif

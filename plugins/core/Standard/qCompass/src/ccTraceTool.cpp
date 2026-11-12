@@ -52,6 +52,12 @@ void ccTraceTool::pointPicked(ccHObject* insertPoint, unsigned itemIdx, ccPointC
 	if (!t)
 	{
 		t = new ccTrace(cloud);
+		//since the cloud can't be a child of the trace instance, we want to be notified
+		//whenever it's deleted (in which case we'll have to clear the trace to avoid a crash)
+		if (cloud)
+		{
+			cloud->addDependency(t, ccHObject::DP_NOTIFY_OTHER_ON_DELETE);
+		}
 		t->setDisplay(m_window);
 		t->setVisible(true);
 		t->setName("Trace");
@@ -71,7 +77,10 @@ void ccTraceTool::pointPicked(ccHObject* insertPoint, unsigned itemIdx, ccPointC
 		{
 			//give user a chance to bail - computations can take looooong
 			QMessageBox::StandardButton q;
-			q = QMessageBox::question(m_app->getMainWindow(), "Calculate gradient?", "Precompute Gradient? This can be slow, but once complete will greatly decrease future computation times.", QMessageBox::Yes | QMessageBox::No);
+			q = QMessageBox::question(	m_app->getMainWindow(),
+										"Calculate gradient?",
+										"Precompute Gradient? This can be slow, but once complete will greatly decrease future computation times.",
+										QMessageBox::Yes | QMessageBox::No);
 			if (q == QMessageBox::Yes) //do compute
 			{
 				t->buildGradientCost(m_app->getMainWindow());
@@ -87,7 +96,10 @@ void ccTraceTool::pointPicked(ccHObject* insertPoint, unsigned itemIdx, ccPointC
 		if (m_precompute_curvature & !t->isCurvaturePrecomputed()) //not already computed?
 		{
 			QMessageBox::StandardButton q;
-			q = QMessageBox::question(m_app->getMainWindow(), "Calculate curvature?", "Precompute Curvature? This can be slow, but once complete will greatly decrease future computation times.", QMessageBox::Yes | QMessageBox::No);
+			q = QMessageBox::question(	m_app->getMainWindow(),
+										"Calculate curvature?",
+										"Precompute Curvature? This can be slow, but once complete will greatly decrease future computation times.",
+										QMessageBox::Yes | QMessageBox::No);
 			if (q == QMessageBox::Yes) //do compute
 			{
 				t->buildCurvatureCost(m_app->getMainWindow());
@@ -108,7 +120,7 @@ void ccTraceTool::pointPicked(ccHObject* insertPoint, unsigned itemIdx, ccPointC
 		if (!t->optimizePath()) //optimize the path!
 		{
 			//... problem?
-			m_app->dispToConsole(QString("[ccCompass] Failed to optimize trace path... please try again."), ccMainAppInterface::WRN_CONSOLE_MESSAGE);
+			ccLog::Warning("[Compass] Failed to optimize trace path... please try again.");
 			t->undoLast(); //go back a step
 
 			if (t->size() < 2) //degenerate trace - delete

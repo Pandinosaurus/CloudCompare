@@ -1,24 +1,23 @@
-//##########################################################################
-//#                                                                        #
-//#                              CLOUDCOMPARE                              #
-//#                                                                        #
-//#  This program is free software; you can redistribute it and/or modify  #
-//#  it under the terms of the GNU General Public License as published by  #
-//#  the Free Software Foundation; version 2 or later of the License.      #
-//#                                                                        #
-//#  This program is distributed in the hope that it will be useful,       #
-//#  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
-//#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
-//#  GNU General Public License for more details.                          #
-//#                                                                        #
-//#          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
-//#                                                                        #
-//##########################################################################
+#pragma once
 
-#ifndef CC_COMMON_HEADER
-#define CC_COMMON_HEADER
+// ##########################################################################
+// #                                                                        #
+// #                              CLOUDCOMPARE                              #
+// #                                                                        #
+// #  This program is free software; you can redistribute it and/or modify  #
+// #  it under the terms of the GNU General Public License as published by  #
+// #  the Free Software Foundation; version 2 or later of the License.      #
+// #                                                                        #
+// #  This program is distributed in the hope that it will be useful,       #
+// #  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
+// #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
+// #  GNU General Public License for more details.                          #
+// #                                                                        #
+// #          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
+// #                                                                        #
+// ##########################################################################
 
-//STANDARD SCALAR FIELD NAMES
+// STANDARD SCALAR FIELD NAMES
 #define CC_DEFAULT_SF_NAME "Unknown"
 #define CC_CLOUD2CLOUD_DISTANCES_DEFAULT_SF_NAME "C2C absolute distances"
 #define CC_TEMP_APPROX_DISTANCES_DEFAULT_SF_NAME "Approx. distances"
@@ -32,6 +31,7 @@
 #define CC_CHI2_DISTANCES_DEFAULT_SF_NAME "Chi2 distances"
 #define CC_CONNECTED_COMPONENTS_DEFAULT_LABEL_NAME "CC labels"
 #define CC_LOCAL_KNN_DENSITY_FIELD_NAME "Number of neighbors"
+#define CC_LOCAL_NN_DISTANCE_FIELD_NAME "Inverse of the nearest neighbor distance"
 #define CC_LOCAL_SURF_DENSITY_FIELD_NAME "Surface density"
 #define CC_LOCAL_VOL_DENSITY_FIELD_NAME "Volume density"
 #define CC_ROUGHNESS_FIELD_NAME "Roughness"
@@ -50,5 +50,4 @@
 #define CC_DEFAULT_MESH_VERT_FLAGS_SF_NAME "Vertex type"
 #define CC_DEFAULT_ID_SF_NAME "Id"
 #define CC_ORIGINAL_CLOUD_INDEX_SF_NAME "Original cloud index"
-
-#endif
+#define CC_CUT_PURSUIT_LABEL_NAME "Cut Pursuit labels"

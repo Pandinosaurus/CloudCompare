@@ -1,3 +1,5 @@
+#pragma once
+
 //##########################################################################
 //#                                                                        #
 //#                     CLOUDCOMPARE PLUGIN: qFacets                       #
@@ -15,9 +17,6 @@
 //#                                                                        #
 //##########################################################################
 
-#ifndef QFACET_FACETS_EXPORT_DLG_HEADER
-#define QFACET_FACETS_EXPORT_DLG_HEADER
-
 #include <QDialog>
 
 #include "ui_facetsExportDlg.h"
@@ -33,7 +32,7 @@ public:
 	enum IOMode { SHAPE_FILE_IO, ASCII_FILE_IO };
 
 	//! Default constructor
-	FacetsExportDlg(IOMode mode, QWidget* parent = 0);
+	FacetsExportDlg(IOMode mode, QWidget* parent = nullptr);
 
 protected:
 
@@ -45,5 +44,3 @@ protected:
 	//! Current I/O mode
 	IOMode m_mode;
 };
-
-#endif //QFACET_FACETS_EXPORT_DLG_HEADER

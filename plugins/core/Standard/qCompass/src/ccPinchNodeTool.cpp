@@ -27,25 +27,28 @@ void ccPinchNodeTool::pointPicked(ccHObject* insertPoint, unsigned itemIdx, ccPo
 {
 	//get insert-point if there is an active GeoObject
 	ccGeoObject* geoObj = ccGeoObject::getGeoObjectParent(insertPoint);
-	if (geoObj) //there is an active GeoObject
-	{
-		insertPoint = geoObj->getRegion(ccGeoObject::INTERIOR); //add pinch-points to GeoObject interior
-	}
-	else
+	if (!geoObj) //there is no active GeoObject
 	{
 		//throw error
-		m_app->dispToConsole("[Compass] PinchNodes can only be added to GeoObjects. Please select one!", ccMainAppInterface::ERR_CONSOLE_MESSAGE);
+		ccLog::Error("[Compass] PinchNodes can only be added to GeoObjects. Please select one!");
+		return;
+	}
+
+	ccHObject* region = geoObj->getRegion(ccGeoObject::INTERIOR); //add pinch-points to GeoObject interior
+	if (!region)
+	{
+		ccLog::Error("[Compass] Internal error: no region");
 		return;
 	}
 
 	//create a 1-point lineation object (highlights node-location)
-	ccPointPair* l = new ccPinchNode(cloud);
+	ccPinchNode* l = new ccPinchNode(cloud);
 	l->setName("tip");
 	l->showNameIn3D(false);
 	l->addPointIndex(itemIdx);
 
 	//add to scene graph
-	insertPoint->addChild(l);
+	region->addChild(l);
 	m_app->addToDB(l);
 }
 

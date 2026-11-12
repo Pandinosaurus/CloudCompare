@@ -1,27 +1,86 @@
-find_package( Qt5Test REQUIRED )
+find_package(Qt6 REQUIRED COMPONENTS Test)
 
+# PLY Filter tests
+add_executable(TestPlyFilter
+    TestPlyFilter.cpp
+)
+
+target_link_libraries(TestPlyFilter
+    PRIVATE
+        QCC_IO_LIB
+        Qt6::Test
+)
+
+add_test( NAME TestPlyFilter COMMAND TestPlyFilter )
+
+# ASCII open dialog tests
+add_executable( TestAsciiOpenDlg
+    TestAsciiOpenDlg.cpp
+)
+
+target_link_libraries( TestAsciiOpenDlg
+    PRIVATE
+        QCC_IO_LIB
+        Qt6::Test
+)
+
+add_test( NAME TestAsciiOpenDlg COMMAND TestAsciiOpenDlg )
+
+# File Round Trip tests
+add_executable( TestFileRoundTrip
+    TestFileRoundTrip.cpp
+)
+
+target_link_libraries(TestFileRoundTrip
+    PRIVATE
+        QCC_IO_LIB
+        Qt6::Test
+)
+
+add_test( NAME TestFileRoundTrip COMMAND TestFileRoundTrip )
+
+# DepthMap Filter tests
+add_executable( TestDepthMapFilter
+    TestDepthMapFilter.cpp
+)
+
+target_link_libraries( TestDepthMapFilter
+    PRIVATE
+        QCC_IO_LIB
+        Qt6::Test
+)
+
+add_test( NAME TestDepthMapFilter COMMAND TestDepthMapFilter )
+
+# ASCII Filter tests
+add_executable( TestAsciiFilter
+    TestAsciiFilter.cpp
+)
+
+target_link_libraries( TestAsciiFilter
+    PRIVATE
+        QCC_IO_LIB
+        Qt6::Test
+)
+
+add_test( NAME TestAsciiFilter COMMAND TestAsciiFilter )
+
+# Shape files filter tests
 if ( OPTION_USE_SHAPE_LIB )
-    add_executable( TestShpFilter )
 
-    target_sources( TestShpFilter
-        PRIVATE
-            ${CMAKE_CURRENT_LIST_DIR}/TestShpFilter.cpp
-            ${CMAKE_CURRENT_LIST_DIR}/TestShpFilter.h
-            ${CMAKE_CURRENT_LIST_DIR}/TestData.qrc
+    add_executable( TestShpFilter
+        TestShpFilter.cpp
+        TestData.qrc
     )
 
     target_link_libraries( TestShpFilter
-        QCC_IO_LIB
-        Qt5::Test
+        PRIVATE
+            QCC_IO_LIB
+            Qt6::Test
     )
 
-    if ( WIN32 )
-        set_target_properties( TestShpFilter PROPERTIES
-            WIN32_EXECUTABLE False
-        )
-    endif()
-
     add_test( NAME TestShpFilter COMMAND TestShpFilter )
+
 endif()
 
 

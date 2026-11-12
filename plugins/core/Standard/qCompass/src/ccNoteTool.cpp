@@ -28,13 +28,13 @@ void ccNoteTool::pointPicked(ccHObject* insertPoint, unsigned itemIdx, ccPointCl
 	//get note text
 	QString note = QInputDialog::getText(m_app->getMainWindow(), "Note", "Contents:", QLineEdit::Normal, "Write note here.");
 
-	if (note == "")
+	if (note.isEmpty())
 	{
 		return;
 	}
 
 	//create a 1-point lineation object (highlights note-location)
-	ccPointPair* l = new ccNote(cloud);
+	ccNote* l = new ccNote(cloud);
 	l->setName(note);
 	l->addPointIndex(itemIdx);
 
@@ -74,7 +74,6 @@ void ccNoteTool::pointPicked(ccHObject* insertPoint, unsigned itemIdx, ccPointCl
 	notesFolder->addChild(l);
 	m_app->addToDB(l);
 }
-
 
 //called when the tool is set to active (for initialization)
 void ccNoteTool::toolActivated()

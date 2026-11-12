@@ -1,65 +1,80 @@
-//##########################################################################
-//#                                                                        #
-//#                              CLOUDCOMPARE                              #
-//#                                                                        #
-//#  This program is free software; you can redistribute it and/or modify  #
-//#  it under the terms of the GNU General Public License as published by  #
-//#  the Free Software Foundation; version 2 or later of the License.      #
-//#                                                                        #
-//#  This program is distributed in the hope that it will be useful,       #
-//#  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
-//#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
-//#  GNU General Public License for more details.                          #
-//#                                                                        #
-//#          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
-//#                                                                        #
-//##########################################################################
+#pragma once
 
-#ifndef CC_SHAPEFILE_DBF_FIELDS_HEADER
-#define CC_SHAPEFILE_DBF_FIELDS_HEADER
+// ##########################################################################
+// #                                                                        #
+// #                              CLOUDCOMPARE                              #
+// #                                                                        #
+// #  This program is free software; you can redistribute it and/or modify  #
+// #  it under the terms of the GNU General Public License as published by  #
+// #  the Free Software Foundation; version 2 or later of the License.      #
+// #                                                                        #
+// #  This program is distributed in the hope that it will be useful,       #
+// #  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
+// #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
+// #  GNU General Public License for more details.                          #
+// #                                                                        #
+// #          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
+// #                                                                        #
+// ##########################################################################
 
 #ifdef CC_SHP_SUPPORT
 
-//local
+// Local
 #include "qCC_io.h"
 
-//CCCoreLib
+// CCCoreLib
 #include <CCGeom.h>
 
-//Qt
+// Qt
 #include <QString>
 
-//system
+// System
 #include <vector>
 
-//Shapelib
+// Shapelib
 #include <shapefil.h>
 
 //! Generic shapefile 'field'
 /** Fields contain one value per record (i.e. primitive)
-**/
-class GenericDBFField
+ **/
+class QCC_IO_LIB_API GenericDBFField
 {
-public:
-
+  public:
 	//! Default constructor
-	GenericDBFField(QString name) : m_name(name) {}
+	explicit GenericDBFField(const QString& name)
+	    : m_name(name)
+	{
+	}
+
+	//! default destructor
+	virtual ~GenericDBFField() = default;
 
 	//! Returns field name
-	const QString& name() const { return m_name; }
+	const QString& name() const
+	{
+		return m_name;
+	}
 
 	//! Returns whehter the field is 3D or not
-	virtual bool is3D() const  { return false; }
+	virtual bool is3D() const
+	{
+		return false;
+	}
 
-	//to be reimplemented by siblings
-	virtual DBFFieldType type() const = 0;
-	virtual int width() const = 0;
-	virtual int decimal() const = 0;
-	virtual bool save(DBFHandle handle, int fieldIndex) const { return false; } //1D version
-	virtual bool save(DBFHandle handle, int xFieldIndex, int yFieldIndex, int zFieldIndex) const { return false; } //3D version
+	// to be reimplemented by siblings
+	virtual DBFFieldType type() const    = 0;
+	virtual int          width() const   = 0;
+	virtual int          decimal() const = 0;
+	virtual bool         save(DBFHandle handle, int fieldIndex) const
+	{
+		return false;
+	} // 1D version
+	virtual bool save(DBFHandle handle, int xFieldIndex, int yFieldIndex, int zFieldIndex) const
+	{
+		return false;
+	} // 3D version
 
-protected:
-
+  protected:
 	//! Field name
 	QString m_name;
 };
@@ -67,16 +82,27 @@ protected:
 //! Int-valued shapefile field
 class QCC_IO_LIB_API IntegerDBFField : public GenericDBFField
 {
-public:
-
+  public:
 	//! Default constructor
-	IntegerDBFField(QString name) : GenericDBFField(name) {}
+	explicit IntegerDBFField(const QString& name)
+	    : GenericDBFField(name)
+	{
+	}
 
-	//inherited from GenericDBFField
-	virtual DBFFieldType type() const { return FTInteger; }
-	virtual int width() const { return 6; }
-	virtual int decimal() const { return 0; }
-	virtual bool save(DBFHandle handle, int fieldIndex) const;
+	// inherited from GenericDBFField
+	DBFFieldType type() const override
+	{
+		return FTInteger;
+	}
+	int width() const override
+	{
+		return 6;
+	}
+	int decimal() const override
+	{
+		return 0;
+	}
+	bool save(DBFHandle handle, int fieldIndex) const override;
 
 	//! Field values
 	std::vector<int> values;
@@ -85,16 +111,27 @@ public:
 //! Double-valued shapefile field
 class QCC_IO_LIB_API DoubleDBFField : public GenericDBFField
 {
-public:
-
+  public:
 	//! Default constructor
-	DoubleDBFField(QString name) : GenericDBFField(name) {}
+	explicit DoubleDBFField(const QString& name)
+	    : GenericDBFField(name)
+	{
+	}
 
-	//inherited from GenericDBFField
-	virtual DBFFieldType type() const { return FTDouble; }
-	virtual int width() const { return 8; }
-	virtual int decimal() const { return 8; }
-	virtual bool save(DBFHandle handle, int fieldIndex) const;
+	// inherited from GenericDBFField
+	DBFFieldType type() const override
+	{
+		return FTDouble;
+	}
+	int width() const override
+	{
+		return 8;
+	}
+	int decimal() const override
+	{
+		return 8;
+	}
+	bool save(DBFHandle handle, int fieldIndex) const override;
 
 	//! Field values
 	std::vector<double> values;
@@ -103,23 +140,34 @@ public:
 //! Double-valued 3D shapefile field
 class QCC_IO_LIB_API DoubleDBFField3D : public GenericDBFField
 {
-public:
-
+  public:
 	//! Default constructor
-	DoubleDBFField3D(QString name) : GenericDBFField(name) {}
-	virtual ~DoubleDBFField3D() {}
+	explicit DoubleDBFField3D(const QString& name)
+	    : GenericDBFField(name)
+	{
+	}
 
-	//inherited from GenericDBFField
-	virtual bool is3D() const  { return true; }
-	virtual DBFFieldType type() const { return FTDouble; }
-	virtual int width() const { return 8; }
-	virtual int decimal() const { return 8; }
-	virtual bool save(DBFHandle handle, int xFieldIndex, int yFieldIndex, int zFieldIndex) const;
+	// inherited from GenericDBFField
+	bool is3D() const override
+	{
+		return true;
+	}
+	DBFFieldType type() const override
+	{
+		return FTDouble;
+	}
+	int width() const override
+	{
+		return 8;
+	}
+	int decimal() const override
+	{
+		return 8;
+	}
+	bool save(DBFHandle handle, int xFieldIndex, int yFieldIndex, int zFieldIndex) const override;
 
 	//! Field values
 	std::vector<CCVector3d> values;
 };
 
-#endif //CC_SHP_SUPPORT
-
-#endif //CC_SHAPEFILE_DBF_FIELDS_HEADER
+#endif // CC_SHP_SUPPORT

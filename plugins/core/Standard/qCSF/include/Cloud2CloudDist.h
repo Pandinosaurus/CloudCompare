@@ -1,3 +1,5 @@
+#pragma once
+
 //#######################################################################################
 //#                                                                                     #
 //#                              CLOUDCOMPARE PLUGIN: qCSF                              #
@@ -16,7 +18,7 @@
 //#  Zhang W, Qi J, Wan P, Wang H, Xie D, Wang X, Yan G. An Easy-to-Use Airborne LiDAR  #
 //#  Data Filtering Method Based on Cloth Simulation. Remote Sensing. 2016; 8(6):501.   #
 //#                                                                                     #
-//#                                     Copyright ©                                     #
+//#                                     Copyright (c)                                   #
 //#               RAMM laboratory, School of Geography, Beijing Normal University       #
 //#                               (http://ramm.bnu.edu.cn/)                             #
 //#                                                                                     #
@@ -25,9 +27,6 @@
 //#                      contact us: 2009zwm@gmail.com; wpqjbzwm@126.com                #
 //#                                                                                     #
 //#######################################################################################
-
-#ifndef _C2CDIST_H_
-#define _C2CDIST_H_
 
 #include "Cloth.h"
 #include "wlPointCloud.h"
@@ -40,9 +39,5 @@ public:
 	static bool Compute(const Cloth& cloth,
 						const wl::PointCloud& pc,
 						double class_threshold,
-						std::vector<int>& groundIndexes,
-						std::vector<int>& offGroundIndexes,
-						unsigned N = 3);
+						std::vector<bool>& isGround);
 };
-
-#endif

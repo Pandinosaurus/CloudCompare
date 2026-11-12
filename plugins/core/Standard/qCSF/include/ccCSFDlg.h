@@ -1,4 +1,6 @@
-﻿//#######################################################################################
+﻿#pragma once
+
+//#######################################################################################
 //#                                                                                     #
 //#                              CLOUDCOMPARE PLUGIN: qCSF                              #
 //#                                                                                     #
@@ -16,7 +18,7 @@
 //#  Zhang W, Qi J, Wan P, Wang H, Xie D, Wang X, Yan G. An Easy-to-Use Airborne LiDAR  #
 //#  Data Filtering Method Based on Cloth Simulation. Remote Sensing. 2016; 8(6):501.   #
 //#                                                                                     #
-//#                                     Copyright ©                                     #
+//#                                    Copyright (c)                                    #
 //#               RAMM laboratory, School of Geography, Beijing Normal University       #
 //#                               (http://ramm.bnu.edu.cn/)                             #
 //#                                                                                     #
@@ -25,9 +27,6 @@
 //#                      contact us: 2009zwm@gmail.com; wpqjbzwm@126.com                #
 //#                                                                                     #
 //#######################################################################################
-
-#ifndef CC_CSF_DLG_HEADER
-#define CC_CSF_DLG_HEADER
 
 #include "ui_CSFDlg.h"
 
@@ -39,7 +38,7 @@ class ccCSFDlg : public QDialog, public Ui::CSFDialog
 public:
 
 	//! Default constructor
-	explicit ccCSFDlg(QWidget* parent = 0);
+	explicit ccCSFDlg(QWidget* parent = nullptr);
 
 protected:
 
@@ -47,5 +46,3 @@ protected:
 	void saveSettings();
 
 };
-
-#endif

@@ -61,7 +61,11 @@ function( target_link_ffmpeg ) # 1 argument: ARGV0 = project name
 		if(WIN32)
 			list( APPEND FFMPEG_LIBRARIES ${FFMPEG_LIBRARY_DIR}/${libfile}.lib )
 		elseif( APPLE )
-			list( APPEND FFMPEG_LIBRARIES ${FFMPEG_LIBRARY_DIR}/lib${libfile}.a )
+		    if( EXISTS "${FFMPEG_LIBRARY_DIR}/lib${libfile}.dylib" )
+				list( APPEND FFMPEG_LIBRARIES ${FFMPEG_LIBRARY_DIR}/lib${libfile}.dylib )
+			else()
+				list( APPEND FFMPEG_LIBRARIES ${FFMPEG_LIBRARY_DIR}/lib${libfile}.a )
+			endif()
 		else()
 			list( APPEND FFMPEG_LIBRARIES ${FFMPEG_LIBRARY_DIR}/lib${libfile}.so )
 		endif()
@@ -102,7 +106,7 @@ function( export_ffmpeg_dlls ) # 1 argument: ARGV0 = destination directory
 			file( GLOB SW_DLLS ${FFMPEG_BINARY_DIR}/sw*.dll )
 			list( APPEND FFMPEG_DLL ${SW_DLLS} )
 
-			copy_files( "${FFMPEG_DLL}" "${ARGV0}" ) #mind the quotes
+			copy_files( "${FFMPEG_DLL}" "${ARGV0}" 1 ) #mind the quotes
 		else()
 			message( FATAL_ERROR "FFmpeg binary dir does not exist (FFMPEG_BINARY_DIR)" )
 		endif()

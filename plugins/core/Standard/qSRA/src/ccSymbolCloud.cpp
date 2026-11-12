@@ -3,6 +3,9 @@
 //qCC_db
 #include <ccGenericGLDisplay.h>
 
+//QT
+#include <QFontMetrics>
+
 ccSymbolCloud::ccSymbolCloud(QString name/*=QString()*/)
 	: ccPointCloud(name)
 	, m_symbolSize(10.0)
@@ -17,10 +20,10 @@ bool ccSymbolCloud::reserve(unsigned numberOfPoints)
 {
 	if (!ccPointCloud::reserve(numberOfPoints))
 		return false;
-	
+
 	if (m_labels.size())
 		return reserveLabelArray(numberOfPoints);
-	
+
 	return true;
 }
 
@@ -28,10 +31,10 @@ bool ccSymbolCloud::resize(unsigned numberOfPoints)
 {
 	if (!ccPointCloud::resize(numberOfPoints))
 		return false;
-	
+
 	if (m_labels.size())
 		return resizeLabelArray(numberOfPoints);
-	
+
 	return true;
 }
 
@@ -90,7 +93,7 @@ QString ccSymbolCloud::getLabel(unsigned index) const
 	{
 		return m_labels[index];
 	}
-	
+
 	return QString();
 }
 
@@ -157,16 +160,19 @@ void ccSymbolCloud::drawMeOnly(CC_DRAW_CONTEXT& context)
 		glDrawParams glParams;
 		getDrawingParameters(glParams);
 
-		//standard case: list names pushing
-		bool pushName = MACRO_DrawEntityNames(context);
 		bool hasLabels = !m_labels.empty();
-		if (pushName)
+
+		bool entityPickingMode = MACRO_EntityPicking(context);
+		ccColor::Rgba pickingColor;
+		if (entityPickingMode)
 		{
 			//not fast at all!
-			if (MACRO_DrawFastNamesOnly(context))
+			if (MACRO_FastEntityPicking(context))
+			{
 				return;
+			}
 
-			glFunc->glPushName(getUniqueIDForDisplay());
+			pickingColor = ccColor::Rgba(context.entityPicking.registerEntity(this), 255);
 			hasLabels = false; //no need to display labels in 'picking' mode
 		}
 
@@ -175,12 +181,17 @@ void ccSymbolCloud::drawMeOnly(CC_DRAW_CONTEXT& context)
 
 		//default color
 		const ccColor::Rgba* color = &context.pointsDefaultCol;
-		if (isColorOverriden())
+		if (entityPickingMode)
+		{
+			color = &pickingColor;
+			glParams.showColors = false;
+		}
+		else if (isColorOverridden())
 		{
 			color = &m_tempColor;
 			glParams.showColors = false;
 		}
-		
+
 		unsigned numberOfPoints = size();
 
 		//viewport parameters (will be used to project 3D positions to 2D)
@@ -225,7 +236,7 @@ void ccSymbolCloud::drawMeOnly(CC_DRAW_CONTEXT& context)
 					color = &getPointColor(i);
 				}
 				//we must reset the color each time as the call to displayText may change the active color!
-				glFunc->glColor4ubv(color->rgba);
+				ccGL::Color(glFunc, *color);
 
 				//draw associated symbol
 				if (m_showSymbols && m_symbolSize > 0.0)
@@ -251,10 +262,5 @@ void ccSymbolCloud::drawMeOnly(CC_DRAW_CONTEXT& context)
 
 		//restore original symbol size
 		m_symbolSize = symbolSizeBackup;
-
-		if (pushName)
-		{
-			glFunc->glPopName();
-		}
 	}
 }

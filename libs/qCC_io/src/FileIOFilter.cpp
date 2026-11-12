@@ -1,66 +1,68 @@
-//##########################################################################
-//#                                                                        #
-//#                              CLOUDCOMPARE                              #
-//#                                                                        #
-//#  This program is free software; you can redistribute it and/or modify  #
-//#  it under the terms of the GNU General Public License as published by  #
-//#  the Free Software Foundation; version 2 or later of the License.      #
-//#                                                                        #
-//#  This program is distributed in the hope that it will be useful,       #
-//#  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
-//#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
-//#  GNU General Public License for more details.                          #
-//#                                                                        #
-//#          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
-//#                                                                        #
-//##########################################################################
+// ##########################################################################
+// #                                                                        #
+// #                              CLOUDCOMPARE                              #
+// #                                                                        #
+// #  This program is free software; you can redistribute it and/or modify  #
+// #  it under the terms of the GNU General Public License as published by  #
+// #  the Free Software Foundation; version 2 or later of the License.      #
+// #                                                                        #
+// #  This program is distributed in the hope that it will be useful,       #
+// #  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
+// #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
+// #  GNU General Public License for more details.                          #
+// #                                                                        #
+// #          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
+// #                                                                        #
+// ##########################################################################
 
-#include "FileIOFilter.h"
+#include "../include/FileIOFilter.h"
 
-//CLOUDS
-#include "AsciiFilter.h"
-#include "BinFilter.h"
+// Local
+#include "../include/AsciiFilter.h"
+#include "../include/BinFilter.h"
+#include "../include/DepthMapFileFilter.h"
+#include "../include/DxfFilter.h"
+#include "../include/ImageFileFilter.h"
+#include "../include/PlyFilter.h"
+#include "../include/RasterGridFilter.h"
+#include "../include/ShpFilter.h"
 
-//MESHES
-#include "PlyFilter.h"
-
-//OTHERS
-#include "DepthMapFileFilter.h"
-#include "DxfFilter.h"
-#include "ImageFileFilter.h"
-#include "RasterGridFilter.h"
-#include "ShpFilter.h"
-
-//Qt
+// Qt
 #include <QFileInfo>
 
 #ifdef USE_VLD
-//VLD
+// VLD
 #include <vld.h>
 #endif
 
-//system
+// System
 #include <cassert>
 #include <vector>
 
 //! Available filters
 /** Filters are uniquely recognized by their 'file filter' string.
-	We use a std::vector so as to keep the insertion ordering!
+    We use a std::vector so as to keep the insertion ordering!
 **/
 static FileIOFilter::FilterContainer s_ioFilters;
 
-static unsigned s_sessionCounter = 0;
+static unsigned s_sessionCounter = 0; //!< Session counter
 
-// This extra definition is required in C++11.
-// In C++17, class-level "static constexpr" is implicitly inline, so these are not required.
-constexpr float FileIOFilter::DEFAULT_PRIORITY;
-
-
-FileIOFilter::FileIOFilter( const FileIOFilter::FilterInfo &info ) :
-	m_filterInfo( info )
+QString FileIOFilter::GetRealFilename(QString filename)
 {
-#ifdef QT_DEBUG	
-	if ( !(m_filterInfo.features & DynamicInfo) )
+	QFileInfo fi(filename);
+	if (fi.isSymLink())
+	{
+		return fi.symLinkTarget();
+	}
+
+	return filename;
+}
+
+FileIOFilter::FileIOFilter(const FilterInfo& info)
+    : m_filterInfo(info)
+{
+#ifdef QT_DEBUG
+	if (!(m_filterInfo.features & DynamicInfo))
 	{
 		checkFilterInfo();
 	}
@@ -77,13 +79,13 @@ bool FileIOFilter::exportSupported() const
 	return m_filterInfo.features & Export;
 }
 
-const QStringList& FileIOFilter::getFileFilters( bool onImport ) const
+const QStringList& FileIOFilter::getFileFilters(bool onImport) const
 {
-	if ( onImport )
+	if (onImport)
 	{
 		return m_filterInfo.importFileFilterStrings;
 	}
-	
+
 	return m_filterInfo.exportFileFilterStrings;
 }
 
@@ -92,17 +94,17 @@ QString FileIOFilter::getDefaultExtension() const
 	return m_filterInfo.defaultExtension;
 }
 
-void FileIOFilter::setImportExtensions( const QStringList &extensions )
+void FileIOFilter::setImportExtensions(const QStringList& extensions)
 {
 	m_filterInfo.importExtensions = extensions;
 }
 
-void FileIOFilter::setImportFileFilterStrings( const QStringList &filterStrings )
+void FileIOFilter::setImportFileFilterStrings(const QStringList& filterStrings)
 {
 	m_filterInfo.importFileFilterStrings = filterStrings;
 }
 
-void FileIOFilter::setExportFileFilterStrings(const QStringList &filterStrings)
+void FileIOFilter::setExportFileFilterStrings(const QStringList& filterStrings)
 {
 	m_filterInfo.exportFileFilterStrings = filterStrings;
 }
@@ -111,44 +113,44 @@ void FileIOFilter::checkFilterInfo() const
 {
 #ifdef QT_DEBUG
 	// Check info for consistency
-	if ( m_filterInfo.features & Import )
+	if (m_filterInfo.features & Import)
 	{
-		if ( m_filterInfo.importFileFilterStrings.isEmpty() )
+		if (m_filterInfo.importFileFilterStrings.isEmpty())
 		{
-			ccLog::Warning( QStringLiteral( "I/O filter marked as import, but no filter strings set: %1" ).arg( m_filterInfo.id ) );
+			ccLog::Warning(QStringLiteral("I/O filter marked as import, but no filter strings set: %1").arg(m_filterInfo.id));
 		}
-		
-		if ( m_filterInfo.importExtensions.isEmpty() )
+
+		if (m_filterInfo.importExtensions.isEmpty())
 		{
-			ccLog::Warning( QStringLiteral( "I/O filter marked as import, but no extensions set: %1" ).arg( m_filterInfo.id ) );
+			ccLog::Warning(QStringLiteral("I/O filter marked as import, but no extensions set: %1").arg(m_filterInfo.id));
 		}
 	}
 	else
 	{
-		if ( !m_filterInfo.importFileFilterStrings.isEmpty() )
+		if (!m_filterInfo.importFileFilterStrings.isEmpty())
 		{
-			ccLog::Warning( QStringLiteral( "I/O filter not marked as import, but filter strings are set: %1" ).arg( m_filterInfo.id ) );
+			ccLog::Warning(QStringLiteral("I/O filter not marked as import, but filter strings are set: %1").arg(m_filterInfo.id));
 		}
-		
-		if ( !m_filterInfo.importExtensions.isEmpty() )
+
+		if (!m_filterInfo.importExtensions.isEmpty())
 		{
-			ccLog::Warning( QStringLiteral( "I/O filter not marked as import, but extensions are set: %1" ).arg( m_filterInfo.id ) );
+			ccLog::Warning(QStringLiteral("I/O filter not marked as import, but extensions are set: %1").arg(m_filterInfo.id));
 		}
 	}
-	
-	if ( m_filterInfo.features & Export )
+
+	if (m_filterInfo.features & Export)
 	{
-		if ( m_filterInfo.exportFileFilterStrings.isEmpty() )
+		if (m_filterInfo.exportFileFilterStrings.isEmpty())
 		{
-			ccLog::Warning( QStringLiteral( "I/O filter marked as export, but no filter strings set: %1" ).arg( m_filterInfo.id ) );
+			ccLog::Warning(QStringLiteral("I/O filter marked as export, but no filter strings set: %1").arg(m_filterInfo.id));
 		}
 	}
 	else
 	{
-		if ( !m_filterInfo.exportFileFilterStrings.isEmpty() )
+		if (!m_filterInfo.exportFileFilterStrings.isEmpty())
 		{
-			ccLog::Warning( QStringLiteral( "I/O filter not marked as export, but filter strings are set: %1" ).arg( m_filterInfo.id ) );
-		}		
+			ccLog::Warning(QStringLiteral("I/O filter not marked as export, but filter strings are set: %1").arg(m_filterInfo.id));
+		}
 	}
 #endif
 }
@@ -165,7 +167,7 @@ unsigned FileIOFilter::IncreaseSesionCounter()
 
 void FileIOFilter::InitInternalFilters()
 {
-	//from the most useful to the less one!
+	// from the most useful to the less one!
 	Register(Shared(new BinFilter()));
 	Register(Shared(new AsciiFilter()));
 
@@ -195,41 +197,41 @@ void FileIOFilter::Register(Shared filter)
 	// check for an existing copy of this filter or one with the same ID
 	const QString id = filter->m_filterInfo.id;
 
-	auto compareFilters = [filter, id] ( const Shared& filter2 )
+	auto compareFilters = [filter, id](const Shared& filter2)
 	{
 		return (filter == filter2) || (filter2->m_filterInfo.id == id);
 	};
-	
-	if ( std::any_of( s_ioFilters.cbegin(), s_ioFilters.cend(), compareFilters ) ) 
+
+	if (std::any_of(s_ioFilters.cbegin(), s_ioFilters.cend(), compareFilters))
 	{
-		ccLog::Warning( QStringLiteral( "[FileIOFilter] I/O filter already registered with id '%1'" ).arg( id ) );
-		
+		ccLog::Warning(QStringLiteral("[FileIOFilter] I/O filter already registered with id '%1'").arg(id));
+
 		return;
 	}
-	
+
 	// insert into the list, sorted by priority first, id second
-	auto comparePriorities = [] ( const Shared& filter1, const Shared& filter2 ) -> bool
+	auto comparePriorities = [](const Shared& filter1, const Shared& filter2) -> bool
 	{
-		if ( filter1->m_filterInfo.priority == filter2->m_filterInfo.priority )
+		if (filter1->m_filterInfo.priority == filter2->m_filterInfo.priority)
 		{
 			return filter1->m_filterInfo.id < filter2->m_filterInfo.id;
 		}
-		
+
 		return filter1->m_filterInfo.priority < filter2->m_filterInfo.priority;
 	};
-	
-	auto pos = std::upper_bound( s_ioFilters.begin(), s_ioFilters.end(), filter, comparePriorities );
-	
-	s_ioFilters.insert( pos, filter );
+
+	auto pos = std::upper_bound(s_ioFilters.begin(), s_ioFilters.end(), filter, comparePriorities);
+
+	s_ioFilters.insert(pos, filter);
 }
 
 void FileIOFilter::UnregisterAll()
 {
-	for (auto & filter : s_ioFilters)
+	for (auto& filter : s_ioFilters)
 	{
 		filter->unregister();
 	}
-	
+
 	s_ioFilters.clear();
 }
 
@@ -237,15 +239,15 @@ FileIOFilter::Shared FileIOFilter::GetFilter(const QString& fileFilter, bool onI
 {
 	if (!fileFilter.isEmpty())
 	{
-		for (FilterContainer::const_iterator it=s_ioFilters.begin(); it!=s_ioFilters.end(); ++it)
+		for (const auto& ioFilter : s_ioFilters)
 		{
-			QStringList otherFilters = (*it)->getFileFilters(onImport);
+			QStringList otherFilters = ioFilter->getFileFilters(onImport);
 			if (otherFilters.contains(fileFilter))
-				return *it;
+				return ioFilter;
 		}
 	}
 
-	return Shared(nullptr);
+	return {};
 }
 
 const FileIOFilter::FilterContainer& FileIOFilter::GetFilters()
@@ -256,37 +258,37 @@ const FileIOFilter::FilterContainer& FileIOFilter::GetFilters()
 FileIOFilter::Shared FileIOFilter::FindBestFilterForExtension(const QString& ext)
 {
 	const QString lowerExt = ext.toLower();
-	
-	for ( const auto &filter : s_ioFilters )
+
+	for (const auto& filter : s_ioFilters)
 	{
-		if ( filter->m_filterInfo.importExtensions.contains( lowerExt ) )
+		if (filter->m_filterInfo.importExtensions.contains(lowerExt))
 		{
 			return filter;
 		}
 	}
 
-	return FileIOFilter::Shared( nullptr );
+	return {};
 }
 
 QStringList FileIOFilter::ImportFilterList()
 {
-	QStringList	list{ QObject::tr( "All (*.*)" ) };
-	
-	for ( const auto &filter : s_ioFilters )
+	QStringList list{QObject::tr("All (*.*)")};
+
+	for (const auto& filter : s_ioFilters)
 	{
-		if ( filter->importSupported() )
+		if (filter->importSupported())
 		{
 			list += filter->m_filterInfo.importFileFilterStrings;
 		}
-	}	
-	
+	}
+
 	return list;
 }
 
-ccHObject* FileIOFilter::LoadFromFile(	const QString& filename,
-										LoadParameters& loadParameters,
-										Shared filter,
-										CC_FILE_ERROR& result)
+ccHObject* FileIOFilter::LoadFromFile(const QString&  filename,
+                                      LoadParameters& loadParameters,
+                                      Shared          filter,
+                                      CC_FILE_ERROR&  result)
 {
 	if (!filter)
 	{
@@ -296,28 +298,28 @@ ccHObject* FileIOFilter::LoadFromFile(	const QString& filename,
 		return nullptr;
 	}
 
-	//check file existence
+	// check file existence
 	QFileInfo fi(filename);
 	if (!fi.exists())
 	{
 		ccLog::Error(QString("[Load] File '%1' doesn't exist!").arg(filename));
-		result = CC_FERR_CONSOLE_ERROR; 
+		result = CC_FERR_CONSOLE_ERROR;
 		return nullptr;
 	}
 
-	//load file
+	// load file
 	ccHObject* container = new ccHObject();
-	result = CC_FERR_NO_ERROR;
-	
-	//we start a new 'action' inside the current sessions
-	unsigned sessionCounter = IncreaseSesionCounter();
+	result               = CC_FERR_NO_ERROR;
+
+	// we start a new 'action' inside the current sessions
+	unsigned sessionCounter     = IncreaseSesionCounter();
 	loadParameters.sessionStart = (sessionCounter == 1);
 
 	try
 	{
-		result = filter->loadFile(	filename,
-									*container,
-									loadParameters);
+		result = filter->loadFile(filename,
+		                          *container,
+		                          loadParameters);
 	}
 	catch (const std::exception& e)
 	{
@@ -351,21 +353,21 @@ ccHObject* FileIOFilter::LoadFromFile(	const QString& filename,
 	unsigned childCount = container->getChildrenNumber();
 	if (childCount != 0)
 	{
-		//we set the main container name as the full filename (with path)
-		container->setName(QString("%1 (%2)").arg(fi.fileName(),fi.absolutePath()));
+		// we set the main container name as the full filename (with path)
+		container->setName(QString("%1 (%2)").arg(fi.fileName(), fi.absolutePath()));
 		for (unsigned i = 0; i < childCount; ++i)
 		{
-			ccHObject* child = container->getChild(i);
-			QString newName = child->getName();
+			ccHObject* child   = container->getChild(i);
+			QString    newName = child->getName();
 			if (newName.startsWith("unnamed"))
 			{
-				//we automatically replace occurrences of 'unnamed' in entities names by the base filename (no path, no extension)
-				newName.replace(QString("unnamed"), fi.baseName());
+				// we automatically replace occurrences of 'unnamed' in entities names by the base filename (no path, no extension)
+				newName.replace(QString("unnamed"), fi.completeBaseName());
 				child->setName(newName);
 			}
 			else if (newName.isEmpty())
 			{
-				//just in case
+				// just in case
 				child->setName(fi.baseName());
 			}
 		}
@@ -379,14 +381,17 @@ ccHObject* FileIOFilter::LoadFromFile(	const QString& filename,
 	return container;
 }
 
-ccHObject* FileIOFilter::LoadFromFile(	const QString& filename,
-										LoadParameters& loadParameters,
-										CC_FILE_ERROR& result,
-										const QString& fileFilter )
+ccHObject* FileIOFilter::LoadFromFile(const QString&  inputFilename,
+                                      LoadParameters& loadParameters,
+                                      CC_FILE_ERROR&  result,
+                                      const QString&  fileFilter)
 {
-	Shared filter(nullptr);
-	
-	//if the right filter is specified by the caller
+	Shared filter;
+
+	// special case for symbolic link, shortcut or alias files
+	QString filename = GetRealFilename(inputFilename);
+
+	// if the right filter is specified by the caller
 	if (!fileFilter.isEmpty())
 	{
 		filter = GetFilter(fileFilter, true);
@@ -397,9 +402,9 @@ ccHObject* FileIOFilter::LoadFromFile(	const QString& filename,
 			return nullptr;
 		}
 	}
-	else //we need to guess the I/O filter based on the file format
+	else // we need to guess the I/O filter based on the file format
 	{
-		//look for file extension (we trust Qt on this task)
+		// look for file extension (we trust Qt on this task)
 		QString extension = QFileInfo(filename).suffix();
 		if (extension.isEmpty())
 		{
@@ -408,10 +413,10 @@ ccHObject* FileIOFilter::LoadFromFile(	const QString& filename,
 			return nullptr;
 		}
 
-		//convert extension to file format
+		// convert extension to file format
 		filter = FindBestFilterForExtension(extension);
 
-		//unknown extension?
+		// unknown extension?
 		if (!filter)
 		{
 			ccLog::Error(QString("[Load] Can't guess file format: unhandled file extension '%1'").arg(extension));
@@ -423,27 +428,32 @@ ccHObject* FileIOFilter::LoadFromFile(	const QString& filename,
 	return LoadFromFile(filename, loadParameters, filter, result);
 }
 
-CC_FILE_ERROR FileIOFilter::SaveToFile(	ccHObject* entities,
-										const QString& filename,
-										const SaveParameters& parameters,
-										Shared filter)
+CC_FILE_ERROR FileIOFilter::SaveToFile(ccHObject*            entities,
+                                       const QString&        inputFilename,
+                                       const SaveParameters& parameters,
+                                       Shared                filter)
 {
-	if (!entities || filename.isEmpty() || !filter)
+	if (!entities || inputFilename.isEmpty() || !filter)
+	{
 		return CC_FERR_BAD_ARGUMENT;
+	}
 
-	//if the file name has no extension, we had a default one!
+	// special case for symbolic link, shortcut or alias files
+	QString filename = GetRealFilename(inputFilename);
+
+	// if the file name has no extension, we had a default one!
 	QString completeFileName(filename);
 	if (QFileInfo(filename).suffix().isEmpty())
 	{
 		completeFileName += QString(".%1").arg(filter->getDefaultExtension());
 	}
-	
+
 	CC_FILE_ERROR result = CC_FERR_NO_ERROR;
 	try
 	{
 		result = filter->saveToFile(entities, completeFileName, parameters);
 	}
-	catch(...)
+	catch (...)
 	{
 		ccLog::Warning(QString("[I/O] CC has caught an unhandled exception while saving file '%1'").arg(filename));
 		result = CC_FERR_CONSOLE_ERROR;
@@ -455,21 +465,23 @@ CC_FILE_ERROR FileIOFilter::SaveToFile(	ccHObject* entities,
 	}
 	else
 	{
-		DisplayErrorMessage(result,"saving",filename);
+		DisplayErrorMessage(result, "saving", filename);
 	}
 
 	return result;
 }
 
-CC_FILE_ERROR FileIOFilter::SaveToFile(	ccHObject* entities,
-										const QString& filename,
-										const SaveParameters& parameters,
-										const QString& fileFilter)
+CC_FILE_ERROR FileIOFilter::SaveToFile(ccHObject*            entities,
+                                       const QString&        filename,
+                                       const SaveParameters& parameters,
+                                       const QString&        fileFilter)
 {
 	if (fileFilter.isEmpty())
+	{
 		return CC_FERR_BAD_ARGUMENT;
+	}
 
-	Shared filter = GetFilter(fileFilter,false);
+	Shared filter = GetFilter(fileFilter, false);
 	if (!filter)
 	{
 		ccLog::Error(QString("[Load] Internal error: no filter corresponds to filter '%1'").arg(fileFilter));
@@ -484,71 +496,78 @@ void FileIOFilter::DisplayErrorMessage(CC_FILE_ERROR err, const QString& action,
 	QString errorStr;
 
 	bool warning = false;
-	switch(err)
+	switch (err)
 	{
 	case CC_FERR_NO_ERROR:
-		return; //no message will be displayed!
+		return; // no message will be displayed!
 	case CC_FERR_BAD_ARGUMENT:
-		errorStr = "bad argument (internal)";
+		errorStr = QObject::tr("bad argument (internal)");
 		break;
 	case CC_FERR_UNKNOWN_FILE:
-		errorStr = "unknown file";
+		errorStr = QObject::tr("unknown file");
 		break;
 	case CC_FERR_WRONG_FILE_TYPE:
-		errorStr = "wrong file type (check header)";
+		errorStr = QObject::tr("wrong file type (check header)");
 		break;
 	case CC_FERR_WRITING:
-		errorStr = "writing error (disk full/no access right?)";
+		errorStr = QObject::tr("writing error (disk full/no access right?)");
 		break;
 	case CC_FERR_READING:
-		errorStr = "reading error (no access right?)";
+		errorStr = QObject::tr("reading error (no access right?)");
 		break;
 	case CC_FERR_NO_SAVE:
-		errorStr = "nothing to save";
+		errorStr = QObject::tr("nothing to save");
 		break;
 	case CC_FERR_NO_LOAD:
-		errorStr = "nothing to load";
+		errorStr = QObject::tr("nothing to load");
 		break;
 	case CC_FERR_BAD_ENTITY_TYPE:
-		errorStr = "incompatible entity/file types";
+		errorStr = QObject::tr("incompatible entity/file types");
 		break;
 	case CC_FERR_CANCELED_BY_USER:
-		errorStr = "process canceled by user";
-		warning = true;
+		errorStr = QObject::tr("process canceled by user");
+		warning  = true;
 		break;
 	case CC_FERR_NOT_ENOUGH_MEMORY:
-		errorStr = "not enough memory";
+		errorStr = QObject::tr("not enough memory");
 		break;
 	case CC_FERR_MALFORMED_FILE:
-		errorStr = "malformed file";
-		break;
-	case CC_FERR_BROKEN_DEPENDENCY_ERROR:
-		errorStr = "dependent entities missing (see Console)";
-		break;
-	case CC_FERR_FILE_WAS_WRITTEN_BY_UNKNOWN_PLUGIN:
-		errorStr = "the file was written by a plugin but none of the loaded plugins can deserialize it";
-		break;
-	case CC_FERR_THIRD_PARTY_LIB_FAILURE:
-		errorStr = "the third-party library in charge of saving/loading the file has failed to perform the operation";
-		break;
-	case CC_FERR_THIRD_PARTY_LIB_EXCEPTION:
-		errorStr = "the third-party library in charge of saving/loading the file has thrown an exception";
-		break;
-	case CC_FERR_NOT_IMPLEMENTED:
-		errorStr = "this function is not implemented yet!";
+		errorStr = QObject::tr("malformed file");
 		break;
 	case CC_FERR_CONSOLE_ERROR:
-		errorStr = "see console";
+		errorStr = QObject::tr("see console");
+		break;
+	case CC_FERR_BROKEN_DEPENDENCY_ERROR:
+		errorStr = QObject::tr("dependent entities missing (see Console)");
+		break;
+	case CC_FERR_FILE_WAS_WRITTEN_BY_UNKNOWN_PLUGIN:
+		errorStr = QObject::tr("the file was written by a plugin but none of the loaded plugins can deserialize it");
+		break;
+	case CC_FERR_THIRD_PARTY_LIB_FAILURE:
+		errorStr = QObject::tr("the third-party library in charge of saving/loading the file has failed to perform the operation");
+		break;
+	case CC_FERR_THIRD_PARTY_LIB_EXCEPTION:
+		errorStr = QObject::tr("the third-party library in charge of saving/loading the file has thrown an exception");
+		break;
+	case CC_FERR_NOT_IMPLEMENTED:
+		errorStr = QObject::tr("this function is not implemented yet!");
+		break;
+	case CC_FERR_INTERNAL:
+		errorStr = QObject::tr("internal error");
 		break;
 	default:
-		return; //no message will be displayed!
+		return; // no message will be displayed!
 	}
 
-	QString outputString = QString("An error occurred while %1 '%2': ").arg(action,filename) + errorStr;
+	QString outputString = QString("An error occurred while %1 '%2': ").arg(action, filename) + errorStr;
 	if (warning)
+	{
 		ccLog::Warning(outputString);
+	}
 	else
+	{
 		ccLog::Error(outputString);
+	}
 }
 
 bool FileIOFilter::CheckForSpecialChars(const QString& filename)
@@ -556,40 +575,66 @@ bool FileIOFilter::CheckForSpecialChars(const QString& filename)
 	return (filename.normalized(QString::NormalizationForm_D) != filename);
 }
 
-bool FileIOFilter::HandleGlobalShift(	const CCVector3d& P,
-										CCVector3d& Pshift,
-										bool& preserveCoordinateShift,
-										LoadParameters& loadParameters,
-										bool useInputCoordinatesShiftIfPossible/*=false*/)
+bool FileIOFilter::HandleGlobalShift(const CCVector3d& P,
+                                     CCVector3d&       Pshift,
+                                     bool&             preserveCoordinateShift,
+                                     LoadParameters&   loadParameters,
+                                     bool              useInputCoordinatesShiftIfPossible /*=false*/)
 {
-	bool shiftAlreadyEnabled = (loadParameters.coordinatesShiftEnabled && *loadParameters.coordinatesShiftEnabled && loadParameters.coordinatesShift);
+	bool shiftAlreadyEnabled = ((nullptr != loadParameters._coordinatesShiftEnabled)
+	                            && (*loadParameters._coordinatesShiftEnabled)
+	                            && (nullptr != loadParameters._coordinatesShift));
 	if (shiftAlreadyEnabled)
 	{
-		Pshift = *loadParameters.coordinatesShift;
+		Pshift                  = *loadParameters._coordinatesShift;
 		preserveCoordinateShift = loadParameters.preserveShiftOnSave;
-	}
-	
-	bool applyAll = false;
-	if (	sizeof(PointCoordinateType) < 8
-		&&	ccGlobalShiftManager::Handle(	P,
-											0,
-											loadParameters.shiftHandlingMode,
-											shiftAlreadyEnabled || useInputCoordinatesShiftIfPossible,
-											Pshift,
-											&preserveCoordinateShift,
-											nullptr,
-											&applyAll) )
-	{
-		//we save coordinates shift information
-		if (applyAll && loadParameters.coordinatesShiftEnabled && loadParameters.coordinatesShift)
+
+		if (nullptr != loadParameters._coordinatesShiftForced && *loadParameters._coordinatesShiftForced)
 		{
-			*loadParameters.coordinatesShiftEnabled = true;
-			*loadParameters.coordinatesShift = Pshift;
+			// the user asked for this coordinate shift to be applied to all entities!
+			return true;
+		}
+	}
+
+	bool applyAll = false;
+	if (sizeof(PointCoordinateType) < 8
+	    && ccGlobalShiftManager::Handle(P,
+	                                    0.0,
+	                                    loadParameters.shiftHandlingMode,
+	                                    shiftAlreadyEnabled || useInputCoordinatesShiftIfPossible,
+	                                    Pshift,
+	                                    &preserveCoordinateShift,
+	                                    nullptr,
+	                                    &applyAll))
+	{
+		// we save coordinates shift information
+		if (applyAll || loadParameters.shiftHandlingMode == ccGlobalShiftManager::NO_DIALOG_AUTO_SHIFT) // in command line mode, with the 'AUTO GLOBAL SHIFT' option, we want to retrieve the applied coordinate shift
+		{
+			if (nullptr != loadParameters._coordinatesShiftEnabled)
+			{
+				*loadParameters._coordinatesShiftEnabled = true;
+			}
+			if (applyAll && nullptr != loadParameters._coordinatesShiftForced)
+			{
+				bool needShift = ccGlobalShiftManager::NeedShift(P + Pshift);
+				if (needShift)
+				{
+					// if the user has clicked on 'apply all' while the inupt shift is not sufficient,
+					// this means that this shift needs to be forced to all the entities!
+					// (otherwise, if the shift is sufficient, then it will probably be ok for the next entities)
+					*loadParameters._coordinatesShiftForced = true;
+				}
+			}
+			if (nullptr != loadParameters._coordinatesShift)
+			{
+				*loadParameters._coordinatesShift = Pshift;
+			}
 			loadParameters.preserveShiftOnSave = preserveCoordinateShift;
 		}
 
 		return true;
 	}
 
+	Pshift = CCVector3d(0, 0, 0);
 	return false;
 }

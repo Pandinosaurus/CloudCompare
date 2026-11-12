@@ -33,7 +33,9 @@
 #include <ccProgressDialog.h>
 
 //qCC
-#include "ccMainAppInterface.h"
+#include <ccMainAppInterface.h>
+#include <ccBackgroundTask.h>
+#include <ccQtHelpers.h>
 
 //Qt
 #include <QtCore>
@@ -114,7 +116,8 @@ void ComputeCorePointNormal(unsigned index)
 			//we determine the plane normal by computing the smallest eigen value of M = 1/n * S[(p-µ)*(p-µ)']
 			CCCoreLib::SquareMatrixd eigVectors;
 			std::vector<double> eigValues;
-			if (CCCoreLib::Jacobi<double>::ComputeEigenValuesAndVectors(Z.computeCovarianceMatrix(), eigVectors, eigValues, true))
+			CCCoreLib::SquareMatrixd covarianceMatrix = Z.computeCovarianceMatrix();
+			if (CCCoreLib::Jacobi<double>::ComputeEigenValuesAndVectors(covarianceMatrix, eigVectors, eigValues, true))
 			{
 				/*** code and comments below are from the original 'm3c2' code (N. Brodu) ***/
 
@@ -194,9 +197,9 @@ bool qM3C2Normals::ComputeCorePointsNormals(CCCoreLib::GenericIndexedCloud* core
 											const std::vector<PointCoordinateType>& sortedRadii,
 											bool& invalidNormals,
 											int maxThreadCount/*=0*/,
-											ccScalarField* normalScale/*=0*/,
-											CCCoreLib::GenericProgressCallback* progressCb/*=0*/,
-											CCCoreLib::DgmOctree* inputOctree/*=0*/)
+											ccScalarField* normalScale/*=nullptr*/,
+											CCCoreLib::GenericProgressCallback* progressCb/*=nullptr*/,
+											CCCoreLib::DgmOctree* inputOctree/*=nullptr*/)
 {
 	assert(corePoints && sourceCloud && corePointsNormals);
 	assert(!sortedRadii.empty());
@@ -292,10 +295,11 @@ bool qM3C2Normals::ComputeCorePointsNormals(CCCoreLib::GenericIndexedCloud* core
 
 		if (maxThreadCount == 0)
 		{
-			maxThreadCount = QThread::idealThreadCount();
+			maxThreadCount = ccQtHelpers::GetMaxThreadCount();
 		}
 		QThreadPool::globalInstance()->setMaxThreadCount(maxThreadCount);
-		QtConcurrent::blockingMap(corePointsIndexes, ComputeCorePointNormal);
+		auto future = QtConcurrent::map(corePointsIndexes, ComputeCorePointNormal);
+		ccBackgroundTask::Wait(future);
 	}
 	else
 	{
@@ -377,7 +381,7 @@ bool qM3C2Normals::UpdateNormalOrientationsWithCloud(	CCCoreLib::GenericIndexedC
 														NormsIndexesTableType& normsCodes,
 														CCCoreLib::GenericIndexedCloud* orientationCloud,
 														int maxThreadCount/*=0*/,
-														CCCoreLib::GenericProgressCallback* progressCb/*=0*/)
+														CCCoreLib::GenericProgressCallback* progressCb/*=nullptr*/)
 {
 	//input normals
 	unsigned count = normsCodes.currentSize();
@@ -443,10 +447,11 @@ bool qM3C2Normals::UpdateNormalOrientationsWithCloud(	CCCoreLib::GenericIndexedC
 
 			if (maxThreadCount == 0)
 			{
-				maxThreadCount = QThread::idealThreadCount();
+				maxThreadCount = ccQtHelpers::GetMaxThreadCount();
 			}
 			QThreadPool::globalInstance()->setMaxThreadCount(maxThreadCount);
-			QtConcurrent::blockingMap(pointIndexes, OrientPointNormalWithCloud);
+			auto future = QtConcurrent::map(pointIndexes, OrientPointNormalWithCloud);
+			ccBackgroundTask::Wait(future);
 		}
 		else
 		{
@@ -578,7 +583,7 @@ bool qM3C2Tools::GuessBestParams(	ccPointCloud* cloud1,
 									unsigned minPoints4Stats,
 									qM3C2Tools::GuessedParams& params,
 									bool fastMode,
-									ccMainAppInterface* app/*=0*/,
+									ccMainAppInterface* app/*=nullptr*/,
 									unsigned probingCount/*=1000*/)
 {
 	//invalid parameters?
@@ -597,8 +602,8 @@ bool qM3C2Tools::GuessBestParams(	ccPointCloud* cloud1,
 	{
 		double d1 = cloud1->getOwnBB().getDiagNormd();
 		double d2 = cloud2->getOwnBB().getDiagNormd();
-		double baseRadius = std::min(d1, d2) * 0.01;
-		params.normScale = params.projScale = baseRadius;
+		double baseDiameter = std::min(d1, d2) * 0.01;
+		params.normScale = params.projScale = baseDiameter;
 	}
 
 	//we could guess the max depth with a Distance Transform (as in the
@@ -629,9 +634,8 @@ bool qM3C2Tools::GuessBestParams(	ccPointCloud* cloud1,
 			}
 		}
 
-		QProgressDialog pDlg("Please wait...", "Cancel", 0, 0);
+		QProgressDialog pDlg(QObject::tr("Please wait..."), "Cancel", 0, 0);
 		pDlg.setWindowTitle("M3C2");
-		//pDlg.setModal(true);
 		pDlg.show();
 		QApplication::processEvents();
 
@@ -640,7 +644,7 @@ bool qM3C2Tools::GuessBestParams(	ccPointCloud* cloud1,
 
 		//starting scale = smallest octree cell size!
 		PointCoordinateType baseScale = octree1->getCellSize(ccOctree::MAX_OCTREE_LEVEL);
-		PointCoordinateType scale = baseScale;
+		PointCoordinateType radius = baseScale;
 
 		bool hasBestNormLevel = false;
 		bool hasBestProjLevel = false;
@@ -650,14 +654,14 @@ bool qM3C2Tools::GuessBestParams(	ccPointCloud* cloud1,
 
 		while (!hasBestNormLevel || !hasBestProjLevel)
 		{
-			unsigned char level = octree1->findBestLevelForAGivenNeighbourhoodSizeExtraction(scale);
+			unsigned char level = octree1->findBestLevelForAGivenNeighbourhoodSizeExtraction(radius);
 			if (app)
-				app->dispToConsole(QString("[M3C2::auto] Test scale: %1 (level %2, %3 samples)").arg(scale).arg(level).arg(probingCount));
+				app->dispToConsole(QString("[M3C2::auto] Test scale: %1 (level %2, %3 samples)").arg(radius * 2).arg(level).arg(probingCount));
 
 			double sumPopulation = 0;
 			double sumPopulation2 = 0;
 			unsigned validLSPlanes = 0;
-			double sumRoughness = 0;
+			double sumSquareRoughness = 0;
 			CCVector3d meanNormal(0, 0, 0);
 			for (unsigned i = 0; i < probingCount; ++i)
 			{
@@ -667,7 +671,7 @@ bool qM3C2Tools::GuessBestParams(	ccPointCloud* cloud1,
 
 				const CCVector3* P = cloud1->getPoint(pointIndex);
 				ccOctree::NeighboursSet neighbors;
-				octree1->getPointsInSphericalNeighbourhood(*P, scale, neighbors, level);
+				octree1->getPointsInSphericalNeighbourhood(*P, radius, neighbors, level);
 
 				size_t n = neighbors.size();
 				populations[i] = static_cast<unsigned>(n);
@@ -697,8 +701,8 @@ bool qM3C2Tools::GuessBestParams(	ccPointCloud* cloud1,
 					{
 						ScalarType d = CCCoreLib::DistanceComputationTools::computePoint2PlaneDistance(P, lsPlane);
 						//we compute relative roughness
-						d /= scale;
-						sumRoughness += d*d;//std::abs(d);
+						d /= radius;
+						sumSquareRoughness += static_cast<double>(d)*d;
 						meanNormal += CCVector3d::fromArray(lsPlane);
 						validLSPlanes++;
 					}
@@ -730,14 +734,14 @@ bool qM3C2Tools::GuessBestParams(	ccPointCloud* cloud1,
 				if (!hasBestProjLevel)
 				{
 					std::sort(populations.begin(), populations.begin() + probingCount);
-					unsigned pop97 = populations[static_cast<unsigned>(floor(probingCount * 0.03))];
+					unsigned pop97 = populations[static_cast<unsigned>(probingCount * 0.03)]; //static_cast is equivalent to floor if value >= 0
 					if (app)
 						app->dispToConsole(QString("[M3C2::auto] \t97% of cells above: %1 +/- %2").arg(pop97));
 					if (pop97 /*meanPopulation - 2 * stdDevPopulation*/ >= minPoints4Stats)
 					{
 						if (app)
 							app->dispToConsole(QString("[M3C2::auto] \tThis scale seems ok for projection!"));
-						params.projScale = scale;
+						params.projScale = radius * 2;
 						hasBestProjLevel = true;
 					}
 				}
@@ -748,18 +752,18 @@ bool qM3C2Tools::GuessBestParams(	ccPointCloud* cloud1,
 				if (app)
 					app->dispToConsole(QString("[M3C2::auto] \tValid normals: %1/%2").arg(validLSPlanes).arg(probingCount));
 
-				double meanRoughness = sqrt(sumRoughness / static_cast<double>(std::max<unsigned>(validLSPlanes, 1)));
+				double meanRoughness = sqrt(sumSquareRoughness / std::max<unsigned>(validLSPlanes, 1));
 				if (app)
 					app->dispToConsole(QString("[M3C2::auto] \tMean relative roughness: %1").arg(meanRoughness));
 
 				if (validLSPlanes > 0.99 * static_cast<double>(probingCount)) //almost all neighbourhood must be large enough to fit a plane!
 				{
 					if (	bestMeanRoughness < 0
-						|| (meanRoughness < bestMeanRoughness && (!hasBestProjLevel || scale < 2.1 * params.projScale)) //DGM: don't increase the normal scale more than 2 times the projection scale (if possible)
+						|| (meanRoughness < bestMeanRoughness && (!hasBestProjLevel || 2.0 * radius < 2.1 * params.projScale)) //DGM: don't increase the normal scale more than 2 times the projection scale (if possible)
 						)
 					{
 						bestMeanRoughness = meanRoughness;
-						params.normScale = scale;
+						params.normScale = radius * 2;
 
 						//mean normal
 						meanNormal.normalize();
@@ -769,7 +773,7 @@ bool qM3C2Tools::GuessBestParams(	ccPointCloud* cloud1,
 						if (std::abs(meanNormal.u[maxDim]) < std::abs(meanNormal.z))
 							maxDim = 2;
 
-						params.preferredDimension = 2 * maxDim;
+						params.preferredDimension = maxDim;
 					}
 					else
 					{
@@ -786,9 +790,9 @@ bool qM3C2Tools::GuessBestParams(	ccPointCloud* cloud1,
 				//if we have reach a big radius already and we don't have
 				//good scales, we stop anyway!
 				if (bestMeanRoughness < 0)
-					params.normScale = scale;
+					params.normScale = radius * 2;
 				if (!hasBestProjLevel)
-					params.projScale = scale;
+					params.projScale = radius * 2;
 				hasBestProjLevel = true;
 				hasBestNormLevel = true;
 				if (app)
@@ -796,8 +800,8 @@ bool qM3C2Tools::GuessBestParams(	ccPointCloud* cloud1,
 				break;
 			}
 
-			//scale += baseScale;
-			scale *= 2;
+			//radius += baseScale;
+			radius *= 2;
 			probingCount = std::max<unsigned>(10, probingCount - (probingCount / 10));
 		}
 	}

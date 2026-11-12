@@ -22,7 +22,8 @@
 #include "ccPointDescriptor.h"
 
 //qCC_plugins
-#include "ccMainAppInterface.h"
+#include <ccMainAppInterface.h>
+#include <ccQtHelpers.h>
 
 //qCC_db
 #include <ccPointCloud.h>
@@ -45,9 +46,9 @@ qCanupoTrainingDialog::qCanupoTrainingDialog(ccMainAppInterface* app)
 {
 	setupUi(this);
 
-	int maxThreadCount = QThread::idealThreadCount();
-	maxThreadCountSpinBox->setRange(1, maxThreadCount);
-	maxThreadCountSpinBox->setSuffix(QString(" / %1").arg(maxThreadCount));
+	static const int MaxThreadCount = QThread::idealThreadCount();
+	maxThreadCountSpinBox->setRange(1, MaxThreadCount);
+	maxThreadCountSpinBox->setSuffix(QString(" / %1").arg(MaxThreadCount));
 
 	if (m_app)
 	{
@@ -93,11 +94,11 @@ qCanupoTrainingDialog::qCanupoTrainingDialog(ccMainAppInterface* app)
 
 	loadParamsFromPersistentSettings();
 
-	connect(cloud1ClassSpinBox, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), this, &qCanupoTrainingDialog::onClassChanged);
-	connect(cloud2ClassSpinBox, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), this, &qCanupoTrainingDialog::onClassChanged);
+	connect(cloud1ClassSpinBox, qOverload<int>(&QSpinBox::valueChanged), this, &qCanupoTrainingDialog::onClassChanged);
+	connect(cloud2ClassSpinBox, qOverload<int>(&QSpinBox::valueChanged), this, &qCanupoTrainingDialog::onClassChanged);
 	
-	connect(class1CloudComboBox, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &qCanupoTrainingDialog::onCloudChanged);
-	connect(class2CloudComboBox, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &qCanupoTrainingDialog::onCloudChanged);
+	connect(class1CloudComboBox, qOverload<int>(&QComboBox::currentIndexChanged), this, &qCanupoTrainingDialog::onCloudChanged);
+	connect(class2CloudComboBox, qOverload<int>(&QComboBox::currentIndexChanged), this, &qCanupoTrainingDialog::onCloudChanged);
 
 	onClassChanged(0);
 	onCloudChanged(0);
@@ -136,14 +137,14 @@ bool qCanupoTrainingDialog::getScales(std::vector<float>& scales) const
 			double minScale	= minScaleDoubleSpinBox->value();
 			if (maxScale < minScale || maxScale < 0 || step < 1.0e-6)
 				return false;
-			unsigned stepCount = static_cast<unsigned>( floor((maxScale-minScale)/step + 1.0e-6) ) + 1;
+			unsigned stepCount = static_cast<unsigned>((maxScale - minScale) / step + 1.0e-6) + 1; //static_cast is equivalent to floor if value >= 0
 			scales.resize(stepCount);
 			for (unsigned i=0; i<stepCount; ++i)
 				scales[i] = static_cast<float>(maxScale - i*step);
 		}
 		else if (scalesListRadioButton->isChecked())
 		{
-			QStringList scaleList = scalesListLineEdit->text().split(' ',QString::SkipEmptyParts);
+			QStringList scaleList = scalesListLineEdit->text().split(' ', Qt::SkipEmptyParts);
 		
 			int listSize = scaleList.size();
 			scales.resize(listSize);
@@ -231,7 +232,7 @@ void qCanupoTrainingDialog::loadParamsFromPersistentSettings()
 
 	unsigned maxPoints = settings.value("MaxPoints",maxPointsSpinBox->value()).toUInt();
 	int classifParam = settings.value("ClassifParam",paramComboBox->currentIndex()).toInt();
-	int maxThreadCount = settings.value("MaxThreadCount", maxThreadCountSpinBox->maximum()).toInt();
+	int maxThreadCount = settings.value("MaxThreadCount", ccQtHelpers::GetMaxThreadCount()).toInt();
 
 	//apply parameters
 

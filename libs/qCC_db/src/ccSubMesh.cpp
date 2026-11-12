@@ -1,50 +1,49 @@
-//##########################################################################
-//#                                                                        #
-//#                              CLOUDCOMPARE                              #
-//#                                                                        #
-//#  This program is free software; you can redistribute it and/or modify  #
-//#  it under the terms of the GNU General Public License as published by  #
-//#  the Free Software Foundation; version 2 or later of the License.      #
-//#                                                                        #
-//#  This program is distributed in the hope that it will be useful,       #
-//#  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
-//#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
-//#  GNU General Public License for more details.                          #
-//#                                                                        #
-//#          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
-//#                                                                        #
-//##########################################################################
+// ##########################################################################
+// #                                                                        #
+// #                              CLOUDCOMPARE                              #
+// #                                                                        #
+// #  This program is free software; you can redistribute it and/or modify  #
+// #  it under the terms of the GNU General Public License as published by  #
+// #  the Free Software Foundation; version 2 or later of the License.      #
+// #                                                                        #
+// #  This program is distributed in the hope that it will be useful,       #
+// #  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
+// #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
+// #  GNU General Public License for more details.                          #
+// #                                                                        #
+// #          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
+// #                                                                        #
+// ##########################################################################
 
-#include "ccSubMesh.h"
+#include "../include/ccSubMesh.h"
 
-//Local
-#include "ccGenericPointCloud.h"
-#include "ccMaterialSet.h"
-#include "ccMesh.h"
+// Local
+#include "../include/ccGenericPointCloud.h"
+#include "../include/ccMaterialSet.h"
+#include "../include/ccMesh.h"
 
-//Qt
-#include <QString>
-
-//CCCoreLib
+// CCCoreLib
 #include <ManualSegmentationTools.h>
 
-//system
+// Qt
+#include <QString>
+
+// System
 #include <cassert>
-#include <cstring>
 
 ccSubMesh::ccSubMesh(ccMesh* parentMesh)
-	: ccGenericMesh("Sub-mesh")
-	, m_associatedMesh(nullptr)
-	, m_globalIterator(0)
+    : ccGenericMesh("Sub-mesh")
+    , m_associatedMesh(nullptr)
+    , m_globalIterator(0)
 {
-	setAssociatedMesh(parentMesh); //must be called so as to set the right dependency!
+	setAssociatedMesh(parentMesh); // must be called so as to set the right dependency!
 
 	showColors(parentMesh ? parentMesh->colorsShown() : true);
 	showNormals(parentMesh ? parentMesh->normalsShown() : true);
 	showSF(parentMesh ? parentMesh->sfShown() : true);
 }
 
-void ccSubMesh::setAssociatedMesh(ccMesh* mesh, bool unlinkPreviousOne/*=true*/)
+void ccSubMesh::setAssociatedMesh(ccMesh* mesh, bool unlinkPreviousOne /*=true*/)
 {
 	if (m_associatedMesh == mesh)
 		return;
@@ -55,7 +54,7 @@ void ccSubMesh::setAssociatedMesh(ccMesh* mesh, bool unlinkPreviousOne/*=true*/)
 	m_associatedMesh = mesh;
 
 	if (m_associatedMesh)
-		m_associatedMesh->addDependency(this,DP_NOTIFY_OTHER_ON_UPDATE);
+		m_associatedMesh->addDependency(this, DP_NOTIFY_OTHER_ON_UPDATE);
 }
 
 void ccSubMesh::onUpdateOf(ccHObject* obj)
@@ -64,24 +63,12 @@ void ccSubMesh::onUpdateOf(ccHObject* obj)
 		m_bBox.setValidity(false);
 }
 
-void ccSubMesh::forEach(genericTriangleAction action)
-{
-	if (!m_associatedMesh)
-		return;
-
-	for (unsigned int index : m_triIndexes)
-	{
-		CCCoreLib::GenericTriangle* tri = m_associatedMesh->_getTriangle(index);
-		action(*tri);
-	}
-}
-
 ccGenericPointCloud* ccSubMesh::getAssociatedCloud() const
 {
 	return m_associatedMesh ? m_associatedMesh->getAssociatedCloud() : nullptr;
 }
 
-CCCoreLib::GenericTriangle* ccSubMesh::_getNextTriangle() //temporary object
+CCCoreLib::GenericTriangle* ccSubMesh::_getNextTriangle() // temporary object
 {
 	return m_associatedMesh && m_globalIterator < size() ? m_associatedMesh->_getTriangle(m_triIndexes[m_globalIterator++]) : nullptr;
 }
@@ -96,7 +83,7 @@ bool ccSubMesh::interpolateNormals(unsigned triIndex, const CCVector3& P, CCVect
 	if (m_associatedMesh && triIndex < size())
 		return m_associatedMesh->interpolateNormals(getTriGlobalIndex(triIndex), P, N);
 
-	//shouldn't happen
+	// shouldn't happen
 	assert(false);
 	return false;
 }
@@ -106,7 +93,7 @@ bool ccSubMesh::interpolateNormalsBC(unsigned triIndex, const CCVector3d& w, CCV
 	if (m_associatedMesh && triIndex < size())
 		return m_associatedMesh->interpolateNormalsBC(getTriGlobalIndex(triIndex), w, N);
 
-	//shouldn't happen
+	// shouldn't happen
 	assert(false);
 	return false;
 }
@@ -116,7 +103,7 @@ bool ccSubMesh::interpolateColors(unsigned triIndex, const CCVector3& P, ccColor
 	if (m_associatedMesh && triIndex < size())
 		return m_associatedMesh->interpolateColors(getTriGlobalIndex(triIndex), P, color);
 
-	//shouldn't happen
+	// shouldn't happen
 	assert(false);
 	return false;
 }
@@ -126,7 +113,7 @@ bool ccSubMesh::interpolateColorsBC(unsigned triIndex, const CCVector3d& w, ccCo
 	if (m_associatedMesh && triIndex < size())
 		return m_associatedMesh->interpolateColorsBC(getTriGlobalIndex(triIndex), w, color);
 
-	//shouldn't happen
+	// shouldn't happen
 	assert(false);
 	return false;
 }
@@ -136,7 +123,7 @@ bool ccSubMesh::interpolateColors(unsigned triIndex, const CCVector3& P, ccColor
 	if (m_associatedMesh && triIndex < size())
 		return m_associatedMesh->interpolateColors(getTriGlobalIndex(triIndex), P, color);
 
-	//shouldn't happen
+	// shouldn't happen
 	assert(false);
 	return false;
 }
@@ -146,7 +133,7 @@ bool ccSubMesh::interpolateColorsBC(unsigned triIndex, const CCVector3d& w, ccCo
 	if (m_associatedMesh && triIndex < size())
 		return m_associatedMesh->interpolateColorsBC(getTriGlobalIndex(triIndex), w, color);
 
-	//shouldn't happen
+	// shouldn't happen
 	assert(false);
 	return false;
 }
@@ -156,7 +143,7 @@ bool ccSubMesh::getColorFromMaterial(unsigned triIndex, const CCVector3& P, ccCo
 	if (m_associatedMesh && triIndex < size())
 		return m_associatedMesh->getColorFromMaterial(getTriGlobalIndex(triIndex), P, color, interpolateColorIfNoTexture);
 
-	//shouldn't happen
+	// shouldn't happen
 	assert(false);
 	return false;
 }
@@ -166,85 +153,129 @@ bool ccSubMesh::getVertexColorFromMaterial(unsigned triIndex, unsigned char vert
 	if (m_associatedMesh && triIndex < size())
 		return m_associatedMesh->getVertexColorFromMaterial(getTriGlobalIndex(triIndex), vertIndex, color, returnColorIfNoTexture);
 
-	//shouldn't happen
+	// shouldn't happen
 	assert(false);
 	return false;
 }
 
-CCCoreLib::GenericTriangle* ccSubMesh::_getTriangle(unsigned triIndex) //temporary object
+CCCoreLib::GenericTriangle* ccSubMesh::_getTriangle(unsigned triIndex) // temporary object
 {
 	if (m_associatedMesh && triIndex < size())
 		return m_associatedMesh->_getTriangle(getTriGlobalIndex(triIndex));
 
-	//shouldn't happen
+	// shouldn't happen
 	assert(false);
 	return nullptr;
 }
 
-void ccSubMesh::getTriangleVertices(unsigned triIndex, CCVector3& A, CCVector3& B, CCVector3& C) const
+void ccSubMesh::getTriangleVertices(unsigned triangleIndex, CCVector3& A, CCVector3& B, CCVector3& C) const
 {
-	if (m_associatedMesh && triIndex < size())
+	if (m_associatedMesh && triangleIndex < size())
 	{
-		m_associatedMesh->getTriangleVertices(getTriGlobalIndex(triIndex), A, B, C);
+		m_associatedMesh->getTriangleVertices(getTriGlobalIndex(triangleIndex), A, B, C);
 	}
 	else
 	{
-		//shouldn't happen
+		// shouldn't happen
 		assert(false);
 	}
 }
 
-CCCoreLib::VerticesIndexes* ccSubMesh::getTriangleVertIndexes(unsigned triIndex)
+CCCoreLib::VerticesIndexes* ccSubMesh::getTriangleVertIndexes(unsigned triangleIndex)
 {
-	if (m_associatedMesh && triIndex < size())
-		return m_associatedMesh->getTriangleVertIndexes(getTriGlobalIndex(triIndex));
+	if (m_associatedMesh && triangleIndex < size())
+		return m_associatedMesh->getTriangleVertIndexes(getTriGlobalIndex(triangleIndex));
 
-	//shouldn't happen
+	// shouldn't happen
 	assert(false);
 	return nullptr;
 }
 
-ccSubMesh* ccSubMesh::createNewSubMeshFromSelection(bool removeSelectedFaces, IndexMap* indexMap/*=0*/)
+ccSubMesh* ccSubMesh::createNewSubMeshFromSelection(bool removeSelectedTriangles, IndexMap* newRemainingTriangleIndexes /*=nullptr*/)
 {
 	ccGenericPointCloud* vertices = getAssociatedCloud();
-	assert(vertices && m_associatedMesh);
 	if (!vertices || !m_associatedMesh)
 	{
+		assert(false);
 		return nullptr;
 	}
 
 	const ccGenericPointCloud::VisibilityTableType& verticesVisibility = vertices->getTheVisibilityArray();
 	if (verticesVisibility.size() < vertices->size())
 	{
-		ccLog::Error(QString("[Sub-mesh %1] Internal error: vertex visibility table not instantiated!").arg(getName()));
+		ccLog::Warning(QString("[Sub-mesh %1] Internal error: vertex visibility table not instantiated!").arg(getName()));
 		return nullptr;
 	}
 
-	//we count the number of remaining faces
+	std::vector<int> selectedTriangleIndexes;
+
 	size_t triNum = m_triIndexes.size();
-	size_t visibleFaces = 0;
+	try
+	{
+		selectedTriangleIndexes.reserve(triNum);
+	}
+	catch (const std::bad_alloc&)
+	{
+		ccLog::Warning(QString("[Sub-mesh %1] Not enough memory").arg(getName()));
+		return nullptr;
+	}
+
+	int validIndex = 0;
+	for (unsigned globalIndex : m_triIndexes)
+	{
+		const CCCoreLib::VerticesIndexes* tsi = m_associatedMesh->getTriangleVertIndexes(globalIndex);
+		// triangle is visible?
+		if (verticesVisibility[tsi->i1] == CCCoreLib::POINT_VISIBLE
+		    && verticesVisibility[tsi->i2] == CCCoreLib::POINT_VISIBLE
+		    && verticesVisibility[tsi->i3] == CCCoreLib::POINT_VISIBLE)
+		{
+			selectedTriangleIndexes.push_back(++validIndex);
+		}
+		else
+		{
+			selectedTriangleIndexes.push_back(-1);
+		}
+	}
+
+	return createNewSubMeshFromSelection(removeSelectedTriangles, selectedTriangleIndexes, newRemainingTriangleIndexes);
+}
+
+ccSubMesh* ccSubMesh::createNewSubMeshFromSelection(bool                    removeSelectedTriangles,
+                                                    const std::vector<int>& selectedTriangleIndexes,
+                                                    IndexMap*               newRemainingTriangleIndexes /*=nullptr*/)
+{
+	if (!m_associatedMesh)
+	{
+		assert(false);
+		return nullptr;
+	}
+	if (selectedTriangleIndexes.size() < m_associatedMesh->size())
+	{
+		ccLog::Error(QString("[Sub-mesh %1] Internal error: input triangle indexes vector size is invalid").arg(getName()));
+		return nullptr;
+	}
+
+	// we count the number of selected triangles
+	size_t selectedTriangleCount = 0;
 	{
 		for (unsigned globalIndex : m_triIndexes)
 		{
-			const CCCoreLib::VerticesIndexes* tsi = m_associatedMesh->getTriangleVertIndexes(globalIndex);
-			//triangle is visible?
-			if (   verticesVisibility[tsi->i1] == CCCoreLib::POINT_VISIBLE
-				&& verticesVisibility[tsi->i2] == CCCoreLib::POINT_VISIBLE
-				&& verticesVisibility[tsi->i3] == CCCoreLib::POINT_VISIBLE)
+			// triangle is selected?
+			if (selectedTriangleIndexes[globalIndex] >= 0)
 			{
-				++visibleFaces;
+				++selectedTriangleCount;
 			}
 		}
 	}
 
-	//nothing to do
-	if (visibleFaces == 0)
+	// nothing to do
+	if (selectedTriangleCount == 0)
 	{
-		if (indexMap) //we still have to translate global indexes!
+		if (newRemainingTriangleIndexes) // we still have to translate global indexes!
 		{
 			for (unsigned& globalIndex : m_triIndexes)
 			{
-				globalIndex = indexMap->at(globalIndex);
+				globalIndex = newRemainingTriangleIndexes->at(globalIndex);
 			}
 		}
 		return nullptr;
@@ -257,42 +288,39 @@ ccSubMesh* ccSubMesh::createNewSubMeshFromSelection(bool removeSelectedFaces, In
 		return nullptr;
 	}
 
-	//create sub-mesh
+	// create sub-mesh
 	{
-		unsigned lastTri = 0;
-		for (size_t i = 0; i < triNum; ++i)
+		size_t triCount = m_triIndexes.size();
+
+		unsigned lastTriIndex = 0;
+		for (size_t i = 0; i < triCount; ++i)
 		{
-			unsigned globalIndex = m_triIndexes[i];
-			const CCCoreLib::VerticesIndexes* tsi = m_associatedMesh->getTriangleVertIndexes(globalIndex);
+			unsigned                          globalIndex = m_triIndexes[i];
+			const CCCoreLib::VerticesIndexes* tsi         = m_associatedMesh->getTriangleVertIndexes(globalIndex);
 
-			if (indexMap) //translate global index?
-				globalIndex = indexMap->at(globalIndex);
-
-			//triangle is visible?
-			if (	verticesVisibility[tsi->i1] == CCCoreLib::POINT_VISIBLE
-				&&	verticesVisibility[tsi->i2] == CCCoreLib::POINT_VISIBLE
-				&&	verticesVisibility[tsi->i3] == CCCoreLib::POINT_VISIBLE)
+			// triangle is selected?
+			if (selectedTriangleIndexes[globalIndex] >= 0)
 			{
-				newSubMesh->addTriangleIndex(globalIndex);
+				newSubMesh->addTriangleIndex(static_cast<unsigned>(selectedTriangleIndexes[globalIndex]));
 			}
-			else if (removeSelectedFaces) //triangle is not visible? It stays in the original mesh!
+			else if (removeSelectedTriangles) // triangle is not selected? It stays in the original mesh!
 			{
-				//we replace the current triangle by the 'last' valid one
-				assert(lastTri <= i);
-				m_triIndexes[lastTri++] = globalIndex;
+				// we replace the 'last' valid triangle by this one
+				assert(lastTriIndex <= i);
+				m_triIndexes[lastTriIndex++] = newRemainingTriangleIndexes ? newRemainingTriangleIndexes->at(globalIndex) : globalIndex;
 			}
 		}
 
-		//resize original mesh
-		if (removeSelectedFaces && lastTri < triNum)
+		// resize original mesh
+		if (removeSelectedTriangles && lastTriIndex < triCount)
 		{
-			resize(lastTri);
+			resize(lastTriIndex); // can't fail, always smaller
 			m_bBox.setValidity(false);
 			notifyGeometryUpdate();
 		}
 	}
 
-	if (newSubMesh->size())
+	if (newSubMesh->size() != 0)
 	{
 		newSubMesh->setName(getName() + QString(".part"));
 		newSubMesh->resize(newSubMesh->size());
@@ -319,7 +347,12 @@ bool ccSubMesh::normalsShown() const
 	return (ccHObject::normalsShown() || triNormsShown());
 }
 
-#define CC_SUB_MESH_TRANSIENT_CONST_TEST(method) bool ccSubMesh::method() const { return m_associatedMesh ? m_associatedMesh->method() : false; }
+#define CC_SUB_MESH_TRANSIENT_CONST_TEST(method) \
+	bool ccSubMesh::method() const \
+	{ \
+		assert(m_associatedMesh); \
+		return m_associatedMesh ? m_associatedMesh->method() : false; \
+	}
 
 CC_SUB_MESH_TRANSIENT_CONST_TEST(hasColors);
 CC_SUB_MESH_TRANSIENT_CONST_TEST(hasNormals);
@@ -329,72 +362,71 @@ CC_SUB_MESH_TRANSIENT_CONST_TEST(hasMaterials);
 CC_SUB_MESH_TRANSIENT_CONST_TEST(hasTextures);
 CC_SUB_MESH_TRANSIENT_CONST_TEST(hasTriNormals);
 
-const ccMaterialSet* ccSubMesh::getMaterialSet() const
+bool ccSubMesh::hasUniqueMaterial()
 {
-	return m_associatedMesh ? m_associatedMesh->getMaterialSet() : nullptr;
+	// Despite overriding ccMesh, a submesh doesn't know how materials and per-triangle material indexes are modified.
+	// Thus we cannot trust the local m_hasUniqueMaterial optional, and we can only rely on the parent mesh's version.
+	return m_associatedMesh ? m_associatedMesh->hasUniqueMaterial() : false;
 }
 
-int ccSubMesh::getTriangleMtlIndex(unsigned triIndex) const
+ccMaterialSet::Shared ccSubMesh::getMaterialSet() const
 {
-	return m_associatedMesh ? m_associatedMesh->getTriangleMtlIndex(getTriGlobalIndex(triIndex)) : -1;
+	assert(m_associatedMesh);
+	return m_associatedMesh->getMaterialSet();
 }
 
-TextureCoordsContainer* ccSubMesh::getTexCoordinatesTable() const
+int ccSubMesh::getTriangleMtlIndex(unsigned triangleIndex) const
 {
-	return m_associatedMesh ? m_associatedMesh->getTexCoordinatesTable() : nullptr;
+	assert(m_associatedMesh);
+	return m_associatedMesh->getTriangleMtlIndex(getTriGlobalIndex(triangleIndex));
 }
 
-void ccSubMesh::getTriangleTexCoordinates(unsigned triIndex, TexCoords2D* &tx1, TexCoords2D* &tx2, TexCoords2D* &tx3) const
+TextureCoordsContainer::Shared ccSubMesh::getTexCoordinatesTable() const
 {
-	if (m_associatedMesh && triIndex < size())
-	{
-		m_associatedMesh->getTriangleTexCoordinates(getTriGlobalIndex(triIndex), tx1, tx2, tx3);
-	}
-	else
-	{
-		//shouldn't happen
-		tx1 = tx2 = tx3 = nullptr;
-		assert(false);
-	}
+	assert(m_associatedMesh);
+	return m_associatedMesh->getTexCoordinatesTable();
+}
+
+void ccSubMesh::getTriangleTexCoordinates(unsigned triIndex, const TexCoords2D*& tx1, const TexCoords2D*& tx2, const TexCoords2D*& tx3) const
+{
+	assert(m_associatedMesh && triIndex < size());
+	m_associatedMesh->getTriangleTexCoordinates(getTriGlobalIndex(triIndex), tx1, tx2, tx3);
 }
 
 bool ccSubMesh::hasPerTriangleTexCoordIndexes() const
 {
-	return m_associatedMesh ? m_associatedMesh->hasPerTriangleTexCoordIndexes() : false;
+	assert(m_associatedMesh);
+	return m_associatedMesh->hasPerTriangleTexCoordIndexes();
 }
 
 void ccSubMesh::getTriangleTexCoordinatesIndexes(unsigned triangleIndex, int& i1, int& i2, int& i3) const
 {
-	if (m_associatedMesh && triangleIndex < size())
-	{
-		m_associatedMesh->getTriangleTexCoordinatesIndexes(getTriGlobalIndex(triangleIndex), i1, i2, i3);
-	}
-	else
-	{
-		i1 = i2 = i3 = -1;
-	}
+	assert(m_associatedMesh && triangleIndex < size());
+	m_associatedMesh->getTriangleTexCoordinatesIndexes(getTriGlobalIndex(triangleIndex), i1, i2, i3);
 }
 
-void ccSubMesh::getTriangleNormalIndexes(unsigned triIndex, int& i1, int& i2, int& i3) const
+void ccSubMesh::getTriangleNormalIndexes(unsigned triangleIndex, int& i1, int& i2, int& i3) const
 {
-	if (m_associatedMesh && triIndex < size())
-	{
-		m_associatedMesh->getTriangleNormalIndexes(getTriGlobalIndex(triIndex), i1, i2, i3);
-	}
-	else
-	{
-		i1 = i2 = i3 = -1;
-	}
+	assert(m_associatedMesh && triangleIndex < size());
+	m_associatedMesh->getTriangleNormalIndexes(getTriGlobalIndex(triangleIndex), i1, i2, i3);
 }
 
-bool ccSubMesh::getTriangleNormals(unsigned triIndex, CCVector3& Na, CCVector3& Nb, CCVector3& Nc) const
+void ccSubMesh::getTriangleCompressedNormals(unsigned triangleIndex, CompressedNormType& Na, CompressedNormType& Nb, CompressedNormType& Nc) const
 {
-	return (m_associatedMesh && triIndex < size() ? m_associatedMesh->getTriangleNormals(getTriGlobalIndex(triIndex), Na, Nb, Nc) : false);
+	assert(m_associatedMesh && triangleIndex < size());
+	m_associatedMesh->getTriangleCompressedNormals(getTriGlobalIndex(triangleIndex), Na, Nb, Nc);
 }
 
-NormsIndexesTableType* ccSubMesh::getTriNormsTable() const
+void ccSubMesh::getTriangleNormals(unsigned triangleIndex, const CCVector3*& Na, const CCVector3*& Nb, const CCVector3*& Nc) const
 {
-	return m_associatedMesh ? m_associatedMesh->getTriNormsTable() : nullptr;
+	assert(m_associatedMesh && triangleIndex < size());
+	m_associatedMesh->getTriangleNormals(getTriGlobalIndex(triangleIndex), Na, Nb, Nc);
+}
+
+NormsIndexesTableType::Shared ccSubMesh::getTriNormsTable() const
+{
+	assert(m_associatedMesh);
+	return m_associatedMesh->getTriNormsTable();
 }
 
 void ccSubMesh::clear(bool releaseMemory)
@@ -414,7 +446,7 @@ bool ccSubMesh::addTriangleIndex(unsigned globalIndex)
 	}
 	catch (const std::bad_alloc&)
 	{
-		//not engough memory
+		// not enough memory
 		return false;
 	}
 
@@ -431,7 +463,7 @@ bool ccSubMesh::addTriangleIndex(unsigned firstIndex, unsigned lastIndex)
 		return false;
 	}
 
-	unsigned range = lastIndex - firstIndex; //lastIndex is excluded
+	unsigned range = lastIndex - firstIndex; // lastIndex is excluded
 
 	try
 	{
@@ -439,10 +471,10 @@ bool ccSubMesh::addTriangleIndex(unsigned firstIndex, unsigned lastIndex)
 	}
 	catch (const std::bad_alloc&)
 	{
-		//not engough memory
+		// not enough memory
 		return false;
 	}
-	
+
 	for (unsigned i = firstIndex; i < lastIndex; ++i)
 	{
 		m_triIndexes.emplace_back(i);
@@ -468,7 +500,7 @@ bool ccSubMesh::reserve(size_t n)
 	}
 	catch (const std::bad_alloc&)
 	{
-		//not engough memory
+		// not enough memory
 		return false;
 	}
 	return true;
@@ -482,7 +514,7 @@ bool ccSubMesh::resize(size_t n)
 	}
 	catch (const std::bad_alloc&)
 	{
-		//not engough memory
+		// not enough memory
 		return false;
 	}
 	return true;
@@ -511,9 +543,9 @@ void ccSubMesh::refreshBB()
 	notifyGeometryUpdate();
 }
 
-ccBBox ccSubMesh::getOwnBB(bool withGLFeatures/*=false*/)
+ccBBox ccSubMesh::getOwnBB(bool withGLFeatures /*=false*/)
 {
-	//force BB refresh if necessary
+	// force BB refresh if necessary
 	if (!m_bBox.isValid() && size() != 0)
 	{
 		refreshBB();
@@ -524,7 +556,7 @@ ccBBox ccSubMesh::getOwnBB(bool withGLFeatures/*=false*/)
 
 void ccSubMesh::getBoundingBox(CCVector3& bbMin, CCVector3& bbMax)
 {
-	//force BB refresh if necessary
+	// force BB refresh if necessary
 	if (!m_bBox.isValid() && size() != 0)
 	{
 		refreshBB();
@@ -534,42 +566,56 @@ void ccSubMesh::getBoundingBox(CCVector3& bbMin, CCVector3& bbMax)
 	bbMax = m_bBox.maxCorner();
 }
 
-bool ccSubMesh::toFile_MeOnly(QFile& out) const
+bool ccSubMesh::toFile_MeOnly(QFile& out, short dataVersion) const
 {
-	if (!ccGenericMesh::toFile_MeOnly(out))
+	assert(out.isOpen() && (out.openMode() & QIODevice::WriteOnly));
+	if (dataVersion < 29)
+	{
+		assert(false);
 		return false;
+	}
 
-	//we can't save the associated mesh here (as it may already be saved)
-	//so instead we save it's unique ID (dataVersion>=29)
-	//WARNING: the mesh must be saved in the same BIN file! (responsibility of the caller)
+	if (!ccGenericMesh::toFile_MeOnly(out, dataVersion))
+	{
+		return false;
+	}
+
+	// we can't save the associated mesh here (as it may already be saved)
+	// so instead we save it's unique ID (dataVersion>=29)
+	// WARNING: the mesh must be saved in the same BIN file! (responsibility of the caller)
 	uint32_t meshUniqueID = (m_associatedMesh ? static_cast<uint32_t>(m_associatedMesh->getUniqueID()) : 0);
 	if (out.write((const char*)&meshUniqueID, 4) < 0)
 		return WriteError();
 
-	//references (dataVersion>=29)
+	// references (dataVersion>=29)
 	if (!ccSerializationHelper::GenericArrayToFile<unsigned, 1, unsigned>(m_triIndexes, out))
 		return WriteError();
 
 	return true;
 }
 
-bool ccSubMesh::fromFile_MeOnly(QFile& in, short dataVersion, int flags, LoadedIDMap& oldToNewIDMap)
+bool ccSubMesh::fromFile_MeOnly(QFile& in, LoadingContext& context)
 {
-	if (!ccGenericMesh::fromFile_MeOnly(in, dataVersion, flags, oldToNewIDMap))
+	if (!ccGenericMesh::fromFile_MeOnly(in, context))
 		return false;
 
-	//as the associated mesh can't be saved directly
-	//we only store its unique ID (dataVersion>=29) --> we hope we will find it at loading time (i.e. this
-	//is the responsibility of the caller to make sure that all dependencies are saved together)
+	// as the associated mesh can't be saved directly
+	// we only store its unique ID (dataVersion>=29) --> we hope we will find it at loading time (i.e. this
+	// is the responsibility of the caller to make sure that all dependencies are saved together)
 	uint32_t meshUniqueID = 0;
 	if (in.read((char*)&meshUniqueID, 4) < 0)
 		return ReadError();
-	//[DIRTY] WARNING: temporarily, we set the mesh unique ID in the 'm_associatedMesh' pointer!!!
-	*(uint32_t*)(&m_associatedMesh) = meshUniqueID;
+	context.incompleteEntities.insert(this, {LoadingContext::Dependency{meshUniqueID, LoadingContext::Dependency::SUBMESH_ASSOCIATED_MESH}});
 
-	//references (dataVersion>=29)
-	if (!ccSerializationHelper::GenericArrayFromFile<unsigned, 1, unsigned>(m_triIndexes, in, dataVersion))
+	// references (dataVersion>=29)
+	if (!ccSerializationHelper::GenericArrayFromFile<unsigned, 1, unsigned>(m_triIndexes, in, context.dataVersion, "triangle indexes"))
 		return ReadError();
 
 	return true;
+}
+
+short ccSubMesh::minimumFileVersion_MeOnly() const
+{
+	short minVersion = std::max(static_cast<short>(29), ccSerializationHelper::GenericArrayToFileMinVersion());
+	return std::max(minVersion, ccGenericMesh::minimumFileVersion_MeOnly());
 }

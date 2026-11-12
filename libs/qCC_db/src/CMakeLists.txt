@@ -8,6 +8,7 @@ target_sources( ${PROJECT_NAME}
 	    ${CMAKE_CURRENT_LIST_DIR}/ccBBox.cpp
 	    ${CMAKE_CURRENT_LIST_DIR}/ccBox.cpp
 	    ${CMAKE_CURRENT_LIST_DIR}/ccCameraSensor.cpp
+		${CMAKE_CURRENT_LIST_DIR}/ccCircle.cpp
 	    ${CMAKE_CURRENT_LIST_DIR}/ccClipBox.cpp
 	    ${CMAKE_CURRENT_LIST_DIR}/ccColorRampShader.cpp
 	    ${CMAKE_CURRENT_LIST_DIR}/ccColorScale.cpp
@@ -17,6 +18,7 @@ target_sources( ${PROJECT_NAME}
 		${CMAKE_CURRENT_LIST_DIR}/ccCoordinateSystem.cpp
 	    ${CMAKE_CURRENT_LIST_DIR}/ccCylinder.cpp
 	    ${CMAKE_CURRENT_LIST_DIR}/ccDepthBuffer.cpp
+		${CMAKE_CURRENT_LIST_DIR}/ccDisc.cpp
 	    ${CMAKE_CURRENT_LIST_DIR}/ccDish.cpp
 	    ${CMAKE_CURRENT_LIST_DIR}/ccDrawableObject.cpp
 	    ${CMAKE_CURRENT_LIST_DIR}/ccExternalFactory.cpp
@@ -27,6 +29,7 @@ target_sources( ${PROJECT_NAME}
 	    ${CMAKE_CURRENT_LIST_DIR}/ccGenericMesh.cpp
 	    ${CMAKE_CURRENT_LIST_DIR}/ccGenericPointCloud.cpp
 	    ${CMAKE_CURRENT_LIST_DIR}/ccGenericPrimitive.cpp
+		${CMAKE_CURRENT_LIST_DIR}/ccGLSLHelper.cpp
 	    ${CMAKE_CURRENT_LIST_DIR}/ccGriddedTools.cpp
 	    ${CMAKE_CURRENT_LIST_DIR}/ccHObject.cpp
 	    ${CMAKE_CURRENT_LIST_DIR}/ccHObjectCaster.cpp

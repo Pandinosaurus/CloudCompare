@@ -51,9 +51,9 @@ CCVector3 ccPointPair::getDirection()
 	}
 	else
 	{
-		const CCVector3 start = *getPoint(0);
-		const CCVector3 end = *getPoint(1);
-		return end - start;
+		const CCVector3* start = getPoint(0);
+		const CCVector3* end = getPoint(1);
+		return *end - *start;
 	}
 }
 
@@ -70,30 +70,41 @@ void ccPointPair::drawMeOnly(CC_DRAW_CONTEXT& context)
 
 		//get the set of OpenGL functions (version 2.1)
 		QOpenGLFunctions_2_1 *glFunc = context.glFunctions<QOpenGLFunctions_2_1>();
-		if (glFunc == nullptr) {
+		if (glFunc == nullptr)
+		{
 			assert(false);
 			return;
 		}
 
-		//push name for picking
-		bool pushName = MACRO_DrawEntityNames(context);
-		if (pushName)
-			glFunc->glPushName(getUniqueIDForDisplay());
+		//color-based entity picking
+		bool entityPickingMode = MACRO_EntityPicking(context);
+		ccColor::Rgb pickingColor;
+		if (entityPickingMode)
+		{
+			//not fast at all!
+			if (MACRO_FastEntityPicking(context))
+			{
+				return;
+			}
+
+			pickingColor = context.entityPicking.registerEntity(this);
+		}
 
 		//check sphere exists
 		if (!c_unitPointMarker)
 		{
-			c_unitPointMarker = QSharedPointer<ccSphere>(new ccSphere(1.0f, nullptr, "PointMarker", 6));
+			c_unitPointMarker.reset(new ccSphere(1.0f, nullptr, "PointMarker", 6));
 
 			c_unitPointMarker->showColors(true);
 			c_unitPointMarker->setVisible(true);
 			c_unitPointMarker->setEnabled(true);
+			c_unitPointMarker->showNormals(true);
 		}
 
 		//check arrow parts exist
 		if (!c_bodyMarker)
 		{
-			c_bodyMarker = QSharedPointer<ccCylinder>(new ccCylinder(1.0f, 0.9f, nullptr, "UnitNormal", 12));
+			c_bodyMarker.reset(new ccCylinder(1.0f, 0.9f, nullptr, "UnitNormal", 12));
 			c_bodyMarker->showColors(true);
 			c_bodyMarker->setVisible(true);
 			c_bodyMarker->setEnabled(true);
@@ -102,7 +113,7 @@ void ccPointPair::drawMeOnly(CC_DRAW_CONTEXT& context)
 		}
 		if (!c_headMarker)
 		{
-			c_headMarker = QSharedPointer<ccCone>(new ccCone(2.5f, 0.0f, 0.1f, 0, 0, nullptr, "UnitNormalHead", 12));
+			c_headMarker.reset(new ccCone(2.5f, 0.0f, 0.1f, 0, 0, nullptr, "UnitNormalHead", 12));
 			c_headMarker->showColors(true);
 			c_headMarker->setVisible(true);
 			c_headMarker->setEnabled(true);
@@ -111,8 +122,9 @@ void ccPointPair::drawMeOnly(CC_DRAW_CONTEXT& context)
 		}
 
 		//not sure what this does, but it looks like fun
+		//Daniel: it's dark magic!
 		CC_DRAW_CONTEXT markerContext = context; //build-up point maker own 'context'
-		markerContext.drawingFlags &= (~CC_DRAW_ENTITY_NAMES); //we must remove the 'push name flag' so that the sphere doesn't push its own!
+		markerContext.drawingFlags &= (~CC_ENTITY_PICKING); //we must remove the 'entity picking flag' so that the sphere doesn't override the picking color!
 		markerContext.display = nullptr;
 
 		//get camera info
@@ -121,11 +133,13 @@ void ccPointPair::drawMeOnly(CC_DRAW_CONTEXT& context)
 		glFunc->glGetDoublev(GL_PROJECTION_MATRIX, camera.projectionMat.data());
 		glFunc->glGetDoublev(GL_MODELVIEW_MATRIX, camera.modelViewMat.data());
 
+		ccColor::Rgb color = entityPickingMode ? pickingColor : getMeasurementColour();
+
 		//set draw colour
-		c_unitPointMarker->setTempColor(getMeasurementColour());
+		c_unitPointMarker->setTempColor(color);
 
 		//get point size for drawing
-		float pSize;
+		float pSize = 1.0f;
 		glFunc->glGetFloatv(GL_POINT_SIZE, &pSize);
 
 		//draw points
@@ -141,18 +155,19 @@ void ccPointPair::drawMeOnly(CC_DRAW_CONTEXT& context)
 			{
 				//in perspective view, the actual scale depends on the distance to the camera!
 				const double* M = camera.modelViewMat.data();
-				double d = (camera.modelViewMat * CCVector3d::fromArray(P->u)).norm();
+				double d = (camera.modelViewMat * (*P)).norm();
 				double unitD = viewportParams.zFar / 2; //we consider that the 'standard' scale is at half the depth
-				scale = static_cast<float>(scale * sqrt(d / unitD)); //sqrt = empirical (probably because the marker size is already partly compensated by ccGLWindow::computeActualPixelSize())
+				scale = static_cast<float>(scale * sqrt(d / unitD)); //sqrt = empirical (probably because the marker size is already partly compensated by ccGLWindowInterface::computeActualPixelSize())
 			}
 			glFunc->glScalef(scale, scale, scale);
+			c_unitPointMarker->showNormals(!entityPickingMode);
 			c_unitPointMarker->draw(markerContext);
 			glFunc->glPopMatrix();
 		}
 
 		//draw arrow
-		c_bodyMarker->setTempColor(getMeasurementColour());
-		c_headMarker->setTempColor(getMeasurementColour());
+		c_bodyMarker->setTempColor(color);
+		c_headMarker->setTempColor(color);
 		if (size() == 2) //two points
 		{
 			const CCVector3 start = *getPoint(0);
@@ -181,13 +196,8 @@ void ccPointPair::drawMeOnly(CC_DRAW_CONTEXT& context)
 			c_headMarker->draw(markerContext);
 			glFunc->glPopMatrix();
 		}
-
-		//finish picking name
-		if (pushName)
-			glFunc->glPopName();
 	}
 }
-
 
 //returns true if object is a pointPair
 bool ccPointPair::isPointPair(ccHObject* object)

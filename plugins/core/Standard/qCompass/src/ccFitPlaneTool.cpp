@@ -66,7 +66,7 @@ void ccFitPlaneTool::pointPicked(ccHObject* insertPoint, unsigned itemIdx, ccPoi
 		oct = cloud->computeOctree(); //if the user clicked "no" when asked to compute the octree then tough....
 		if (!oct)
 		{
-			ccLog::Warning("[ccFitPlaneTool] Failed to compute the cloud octree");
+			ccLog::Error("[ccFitPlaneTool] Failed to compute the cloud octree");
 			return;
 		}
 	}
@@ -85,11 +85,13 @@ void ccFitPlaneTool::pointPicked(ccHObject* insertPoint, unsigned itemIdx, ccPoi
 
 	if (pPlane) //valid fit
 	{
+		pPlane->copyGlobalShiftAndScale(*cloud);
+
 		//we can orient the plane normal to face the viewer
 		if (m_app->getActiveGLWindow())
 		{
 			CCVector3d viewDir = m_app->getActiveGLWindow()->getViewportParameters().getViewDir();
-			if (CCVector3d::fromArray(pPlane->getNormal().u).dot(viewDir) > 0)
+			if (pPlane->getNormal().toDouble().dot(viewDir) > 0)
 			{
 				pPlane->flip();
 			}

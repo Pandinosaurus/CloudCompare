@@ -9,41 +9,55 @@ add_subdirectory( src )
 add_subdirectory( ui )
 
 option( OPTION_USE_DXF_LIB "Build with Ribbonsoft's DXF Lib (AutoCAD DXF files support)" ON )
+option( OPTION_USE_SYSTEM_DXF_LIB "Use an installed dxflib (CMake package) instead of the bundled copy" OFF )
 if( ${OPTION_USE_DXF_LIB} )
-	set( DXF_LIB_DIR "extern/dxflib" CACHE PATH "DXF lib path" )
-	add_subdirectory( "${DXF_LIB_DIR}" )
-	target_link_libraries( ${PROJECT_NAME} dxflib )	
+	if( ${OPTION_USE_SYSTEM_DXF_LIB} )
+		# the installed dxflib must have the file name overloads of the bundled copy
+		# (std::string for DL_Dxf::out, std::wstring for in/out with MSVC)
+		find_package( dxflib 3.26 CONFIG REQUIRED )
+		target_link_libraries( ${PROJECT_NAME} PRIVATE dxflib::dxflib )
+		target_compile_definitions( ${PROJECT_NAME} PRIVATE CC_DXF_SUPPORT )
+	else()
+		set( DXF_LIB_DIR "extern/dxflib" CACHE PATH "DXF lib path" )
+		add_subdirectory( "${DXF_LIB_DIR}" )
+		target_link_libraries( ${PROJECT_NAME} PRIVATE dxflib )
+	endif()
 endif()
 
 option( OPTION_USE_SHAPE_LIB "Build with ShapeLib (SHP files support)" ON )
+option( OPTION_USE_SYSTEM_SHAPE_LIB "Use an installed ShapeLib instead of the bundled copy" OFF )
 if( ${OPTION_USE_SHAPE_LIB} )
-    set( SHAPELIB_LIB_DIR "extern/shapelib" CACHE PATH "shapelib lib path" )
-	add_subdirectory( "${SHAPELIB_LIB_DIR}" )
-	target_link_libraries( ${PROJECT_NAME} shapelib )	
+	if( ${OPTION_USE_SYSTEM_SHAPE_LIB} )
+		find_package( shapelib CONFIG REQUIRED )
+		target_link_libraries( ${PROJECT_NAME} PUBLIC shapelib::shp )
+	else()
+		set( SHAPELIB_LIB_DIR "extern/shapelib" CACHE PATH "shapelib lib path" )
+		add_subdirectory( "${SHAPELIB_LIB_DIR}" )
+		target_link_libraries( ${PROJECT_NAME} PUBLIC shapelib )
+	endif()
+	target_compile_definitions( ${PROJECT_NAME} PUBLIC CC_SHP_SUPPORT )
 endif()
 
 target_link_libraries( ${PROJECT_NAME}
-	QCC_DB_LIB
+	PUBLIC
+		QCC_DB_LIB
+		Qt::Concurrent
 )
 
 if( OPTION_USE_GDAL )
 	target_link_GDAL( ${PROJECT_NAME} )
 endif()
 
-# contrib. libraries support
-target_link_contrib( ${PROJECT_NAME} )
-
 # Add custom preprocessor definitions
 target_compile_definitions( ${PROJECT_NAME} PRIVATE QCC_IO_LIBRARY_BUILD )
 
 set_target_properties( ${PROJECT_NAME} PROPERTIES
-    AUTOUIC ON # FIXME Remove after everything has moved to targets and we can set it globally
+	AUTOUIC ON # FIXME Remove after everything has moved to targets and we can set it globally
 	CXX_VISIBILITY_PRESET hidden
 )
 
 if ( BUILD_TESTING )
-	add_subdirectory( test ) 
+	add_subdirectory( test )
 endif()
 
 InstallSharedLibrary( TARGET ${PROJECT_NAME} )
-

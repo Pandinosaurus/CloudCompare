@@ -1,3 +1,5 @@
+#pragma once
+
 //##########################################################################
 //#                                                                        #
 //#                     CLOUDCOMPARE PLUGIN: qFacets                       #
@@ -14,9 +16,6 @@
 //#                      COPYRIGHT: Thomas Dewez, BRGM                     #
 //#                                                                        #
 //##########################################################################
-
-#ifndef QFACET_STEREOGRAM_DIALOG_HEADER
-#define QFACET_STEREOGRAM_DIALOG_HEADER
 
 #include "ui_stereogramDlg.h"
 #include "ui_stereogramParamsDlg.h"
@@ -58,10 +57,10 @@ class StereogramWidget : public QLabel
 public:
 
 	//! Default constructor
-	StereogramWidget(QWidget *parent = nullptr);
+	StereogramWidget(QWidget* parent = nullptr);
 
 	//! Destructor
-	virtual ~StereogramWidget();
+	~StereogramWidget() override;
 
 	//! Sets current parameters
 	bool init(	double angularStep_deg,
@@ -95,7 +94,7 @@ public:
 	//! Sets tracked center position
 	void setTrackedCenter(double dip_deg, double dipDir_deg);
 
-signals:
+Q_SIGNALS:
 
 	//! Signal emitted when the mouse (left) button is clicked
 	/** \param dip_deg dip angle (in degrees)
@@ -202,5 +201,3 @@ protected:
 	//! Associated set of facets (unique ID)
 	int m_facetGroupUniqueID;
 };
-
-#endif //QFACET_STEREOGRAM_DIALOG_HEADER

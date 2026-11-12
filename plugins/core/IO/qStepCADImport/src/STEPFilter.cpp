@@ -1,88 +1,79 @@
-//##########################################################################
-//#                                                                        #
-//#                 CLOUDCOMPARE PLUGIN: qSTEPCADImport                    #
-//#                                                                        #
-//#  This program is free software; you can redistribute it and/or modify  #
-//#  it under the terms of the GNU General Public License as published by  #
-//#  the Free Software Foundation; version 2 of the License.               #
-//#                                                                        #
-//#  This program is distributed in the hope that it will be useful,       #
-//#  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
-//#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         #
-//#  GNU General Public License for more details.                          #
-//#                                                                        #
-//#                          COPYRIGHT: EDF R&D                            #
-//#                                                                        #
-//##########################################################################
+// ##########################################################################
+// #                                                                        #
+// #                 CLOUDCOMPARE PLUGIN: qSTEPCADImport                    #
+// #                                                                        #
+// #  This program is free software; you can redistribute it and/or modify  #
+// #  it under the terms of the GNU General Public License as published by  #
+// #  the Free Software Foundation; version 2 of the License.               #
+// #                                                                        #
+// #  This program is distributed in the hope that it will be useful,       #
+// #  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
+// #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         #
+// #  GNU General Public License for more details.                          #
+// #                                                                        #
+// #                          COPYRIGHT: EDF R&D                            #
+// #                                                                        #
+// ##########################################################################
 
 #include "../include/STEPFilter.h"
 
-//Qt
+// Qt
 #include <QFile>
 #include <QFileInfo>
 #include <QInputDialog>
 
-//qCC_db
-#include <ccPointCloud.h>
-#include <ccMesh.h>
+// qCC_db
 #include <ccLog.h>
+#include <ccMesh.h>
+#include <ccPointCloud.h>
 
 // Include OpenCascade :
-#include "STEPControl_Reader.hxx"
-#include "Interface_Static.hxx"
-#include "IFSelect_ReturnStatus.hxx"
-#include "IFSelect_PrintCount.hxx"
-
-#include "BRepTools.hxx"
-#include "BRepBuilderAPI_MakePolygon.hxx"
 #include "BRepBuilderAPI_MakeFace.hxx"
+#include "BRepBuilderAPI_MakePolygon.hxx"
 #include "BRepBuilderAPI_MakeSolid.hxx"
-#include "BRep_Builder.hxx"
-#include "Poly_Triangulation.hxx"
-
-#include "TopoDS.hxx"
-#include "TopoDS_Compound.hxx"
-#include "TopoDS_Solid.hxx"
-#include "TopoDS_Shell.hxx"
-#include "TopAbs_ShapeEnum.hxx"
-
-#include "TopTools.hxx"
-#include "TColgp_Array1OfPnt.hxx"
-#include "TopExp_Explorer.hxx"
-#include "TopExp.hxx"
 #include "BRepBuilderAPI_Sewing.hxx"
-
-#include "TopTools_ListOfShape.hxx"
-#include "NCollection_List.hxx"
-
 #include "BRepMesh_FastDiscret.hxx"
 #include "BRepMesh_IncrementalMesh.hxx"
+#include "BRepTools.hxx"
+#include "BRep_Builder.hxx"
+#include "IFSelect_PrintCount.hxx"
+#include "IFSelect_ReturnStatus.hxx"
+#include "Interface_Static.hxx"
+#include "NCollection_List.hxx"
+#include "Poly_Triangulation.hxx"
+#include "STEPControl_Reader.hxx"
+#include "TColgp_Array1OfPnt.hxx"
+#include "TopAbs_ShapeEnum.hxx"
+#include "TopExp.hxx"
+#include "TopExp_Explorer.hxx"
+#include "TopTools.hxx"
+#include "TopTools_ListOfShape.hxx"
+#include "TopoDS.hxx"
+#include "TopoDS_Compound.hxx"
+#include "TopoDS_Shell.hxx"
+#include "TopoDS_Solid.hxx"
 
 using namespace std;
 
-static std::map<TopAbs_ShapeEnum, QString> ShapeTypes
-{
-	{TopAbs_COMPOUND,  "TopAbs_COMPOUND"},
-	{TopAbs_COMPSOLID, "TopAbs_COMPSOLID"},
-	{TopAbs_SOLID,     "TopAbs_SOLID"},
-	{TopAbs_SHELL,     "TopAbs_SHELL"},
-	{TopAbs_FACE,      "TopAbs_FACE"},
-	{TopAbs_WIRE,      "TopAbs_WIRE"},
-	{TopAbs_EDGE,      "TopAbs_EDGE"},
-	{TopAbs_VERTEX,    "TopAbs_VERTEX"},
-	{TopAbs_SHAPE,     "TopAbs_SHAPE"}
-};
+static std::map<TopAbs_ShapeEnum, QString> ShapeTypes{
+    {TopAbs_COMPOUND, "TopAbs_COMPOUND"},
+    {TopAbs_COMPSOLID, "TopAbs_COMPSOLID"},
+    {TopAbs_SOLID, "TopAbs_SOLID"},
+    {TopAbs_SHELL, "TopAbs_SHELL"},
+    {TopAbs_FACE, "TopAbs_FACE"},
+    {TopAbs_WIRE, "TopAbs_WIRE"},
+    {TopAbs_EDGE, "TopAbs_EDGE"},
+    {TopAbs_VERTEX, "TopAbs_VERTEX"},
+    {TopAbs_SHAPE, "TopAbs_SHAPE"}};
 
 STEPFilter::STEPFilter()
-	: FileIOFilter( {
-					"_STEP OpenCascade Filter",
-					DEFAULT_PRIORITY,	//priority
-					QStringList{ "step", "stp" },
-					"step",
-					QStringList{ "STEP CAD file (*.step *.stp)"},
-					QStringList(),
-					Import
-					} )
+    : FileIOFilter({"_STEP OpenCascade Filter",
+                    DEFAULT_PRIORITY, // priority
+                    QStringList{"step", "stp"},
+                    "step",
+                    QStringList{"STEP CAD file (*.step *.stp)"},
+                    QStringList(),
+                    Import})
 {
 }
 
@@ -103,9 +94,9 @@ void STEPFilter::SetDefaultLinearDeflection(double value)
 	s_defaultLinearDeflection = value;
 }
 
-CC_FILE_ERROR STEPFilter::loadFile( const QString& fullFilename,
-									ccHObject& container, 
-									LoadParameters& parameters )
+CC_FILE_ERROR STEPFilter::loadFile(const QString&  fullFilename,
+                                   ccHObject&      container,
+                                   LoadParameters& parameters)
 {
 	// check for the file existence
 	QFileInfo fi(fullFilename);
@@ -113,22 +104,27 @@ CC_FILE_ERROR STEPFilter::loadFile( const QString& fullFilename,
 	{
 		return CC_FERR_UNKNOWN_FILE;
 	}
-	
-	double linearDeflection = s_defaultLinearDeflection;
-	if (parameters.parentWidget)
+
+	if (parameters.sessionStart && parameters.parentWidget)
 	{
-		bool ok = false;
-		linearDeflection = QInputDialog::getDouble(parameters.parentWidget, "Linear deflection", "Linear deflection", s_defaultLinearDeflection, 1.0e-6, 1.0e-2, 6, &ok);
+		bool   ok               = false;
+		double linearDeflection = QInputDialog::getDouble(parameters.parentWidget, "Linear deflection", "Linear deflection", s_defaultLinearDeflection, 1.0e-6, 1.0e-2, 6, &ok);
 		if (!ok)
 		{
 			return CC_FERR_CANCELED_BY_USER;
 		}
+		SetDefaultLinearDeflection(linearDeflection);
 	}
-	
+
 	CC_FILE_ERROR error;
 	try
 	{
-		error = importStepFile(container, fullFilename, linearDeflection, parameters);
+		error = importStepFile(container, fullFilename, s_defaultLinearDeflection, parameters);
+	}
+	catch (Standard_Failure e)
+	{
+		ccLog::Warning(QString("OpenCascade error: ") + e.GetMessageString());
+		return CC_FERR_THIRD_PARTY_LIB_EXCEPTION;
 	}
 	catch (...)
 	{
@@ -138,23 +134,19 @@ CC_FILE_ERROR STEPFilter::loadFile( const QString& fullFilename,
 	return error;
 }
 
-CC_FILE_ERROR STEPFilter::importStepFile(	ccHObject& container,
-											const QString& fullFileName,
-											double linearDeflection,
-											LoadParameters& parameters )
+CC_FILE_ERROR STEPFilter::importStepFile(ccHObject&      container,
+                                         const QString&  fullFileName,
+                                         double          linearDeflection,
+                                         LoadParameters& parameters)
 {
-	Interface_Static::SetCVal("xstep.cascade.unit", "M");
+	// Interface_Static::SetCVal("xstep.cascade.unit", "M"); // DGM: seems to mess things completely, having various impacts during the next run (smaller scale, etc.)
 
-	STEPControl_Reader aReader;
+	STEPControl_Reader    aReader;
 	IFSelect_ReturnStatus aStatus = aReader.ReadFile(qUtf8Printable(fullFileName));
 	if (aStatus != IFSelect_ReturnStatus::IFSelect_RetDone)
 	{
 		return CC_FERR_THIRD_PARTY_LIB_FAILURE;
 	}
-
-	//bool isFailsonly = false;
-	//aReader.PrintCheckLoad(isFailsonly, IFSelect_PrintCount::IFSelect_ItemsByEntity);
-	//aReader.PrintCheckTransfer(isFailsonly, IFSelect_PrintCount::IFSelect_ItemsByEntity);
 
 	// Collecting entities inside the STEP file
 	int rootCount = aReader.NbRootsForTransfer();
@@ -190,8 +182,8 @@ CC_FILE_ERROR STEPFilter::importStepFile(	ccHObject& container,
 
 	TopoDS_Shape aShape = aReader.OneShape();
 	ccLog::Print("[STEP] Shape type: " + ShapeTypes[aShape.ShapeType()]);
-	
-	BRepMesh_IncrementalMesh incrementalMesh(aShape, linearDeflection, Standard_True); //not explicitly used, but still needs to be instantiated
+
+	BRepMesh_IncrementalMesh incrementalMesh(aShape, linearDeflection, Standard_True); // not explicitly used, but still needs to be instantiated
 
 	// Creation of the CC vertices and mesh
 	ccPointCloud* vertices = new ccPointCloud("vertices");
@@ -202,9 +194,9 @@ CC_FILE_ERROR STEPFilter::importStepFile(	ccHObject& container,
 
 	// Notice that the nodes are duplicated during CAD tesslation : if a node is
 	// belonging to N triangles, it's duplicated N times.
-	unsigned faceCount = 0;
-	unsigned triCount = 0; // Number of triangles of the tesselated CAD shape imported
-	unsigned vertCount = 0;
+	unsigned        faceCount = 0;
+	unsigned        triCount  = 0; // Number of triangles of the tesselated CAD shape imported
+	unsigned        vertCount = 0;
 	TopExp_Explorer expFaces;
 	for (expFaces.Init(aShape, TopAbs_FACE); expFaces.More(); expFaces.Next())
 	{
@@ -212,10 +204,15 @@ CC_FILE_ERROR STEPFilter::importStepFile(	ccHObject& container,
 		++faceCount;
 
 		TopLoc_Location location;
-		Poly_Triangulation facing = BRep_Tool::Triangulation(face, location);
+		const auto&     facing = BRep_Tool::Triangulation(face, location);
+		if (!facing)
+		{
+			delete mesh;
+			return CC_FERR_THIRD_PARTY_LIB_FAILURE;
+		}
 
-		vertCount += static_cast<unsigned>(facing.NbNodes());
-		triCount += static_cast<unsigned>(facing.NbTriangles());
+		vertCount += static_cast<unsigned>(facing->NbNodes());
+		triCount += static_cast<unsigned>(facing->NbTriangles());
 
 		if (triCount > mesh->capacity() && !mesh->reserve(triCount + 65536))
 		{
@@ -228,27 +225,28 @@ CC_FILE_ERROR STEPFilter::importStepFile(	ccHObject& container,
 			return CC_FERR_NOT_ENOUGH_MEMORY;
 		}
 
-		gp_Trsf nodeTransformation = location;
-		TColgp_Array1OfPnt nodes = facing.Nodes();
-		Poly_Array1OfTriangle tri = facing.Triangles();
+		gp_Trsf                      nodeTransformation = location;
+		const Poly_Array1OfTriangle& triangles          = facing->Triangles();
+		TopAbs_Orientation           orientation        = face.Orientation();
 
-		for (int j = 1; j <= facing.NbTriangles(); j++)
+		for (int j = 1; j <= facing->NbTriangles(); j++)
 		{
-			Standard_Integer index1, index2, index3;
-			tri.Value(j).Get(index1, index2, index3);
-			gp_Pnt p1 = nodes.Value(index1).Transformed(nodeTransformation);
-			gp_Pnt p2 = nodes.Value(index2).Transformed(nodeTransformation);
-			gp_Pnt p3 = nodes.Value(index3).Transformed(nodeTransformation);
+			Standard_Integer index[3]{0};
+			triangles.Value(j).Get(index[0], index[1], index[2]);
 
-			unsigned vertIndexes[3];
-			vertIndexes[0] = vertices->size();
-			vertices->addPoint(CCVector3(p1.X(), p1.Y(), p1.Z()));
-			vertIndexes[1] = vertices->size();
-			vertices->addPoint(CCVector3(p2.X(), p2.Y(), p2.Z()));
-			vertIndexes[2] = vertices->size();
-			vertices->addPoint(CCVector3(p3.X(), p3.Y(), p3.Z()));
+			unsigned vertIndexes[3]{0};
+			for (unsigned k = 0; k < 3; ++k)
+			{
+				gp_Pnt pk = facing->Node(index[k]).Transformed(nodeTransformation);
 
-			mesh->addTriangle(vertIndexes[0], vertIndexes[1], vertIndexes[2]);
+				vertIndexes[k] = vertices->size();
+
+				vertices->addPoint(CCVector3(pk.X(), pk.Y(), pk.Z()));
+			}
+			if (orientation == TopAbs_REVERSED)
+				mesh->addTriangle(vertIndexes[0], vertIndexes[2], vertIndexes[1]);
+			else
+				mesh->addTriangle(vertIndexes[0], vertIndexes[1], vertIndexes[2]);
 		}
 	}
 
@@ -259,8 +257,8 @@ CC_FILE_ERROR STEPFilter::importStepFile(	ccHObject& container,
 	ccLog::Print("[STEP] Number of triangles (after tesselation) = " + QString::number(triCount));
 	ccLog::Print("[STEP] Number of vertices (after tesselation)  = " + QString::number(vertCount));
 
-	mesh->mergeDuplicatedVertices(ccMesh::DefaultMergeDulicateVerticesLevel, parameters.parentWidget);
-	vertices = nullptr; //warning, after this point, 'vertices' is not valid anymore
+	mesh->mergeDuplicatedVertices(ccMesh::DefaultMergeDuplicateVerticesLevel, parameters.parentWidget);
+	vertices = nullptr; // warning, after this point, 'vertices' is not valid anymore
 
 	if (mesh->computePerTriangleNormals())
 	{

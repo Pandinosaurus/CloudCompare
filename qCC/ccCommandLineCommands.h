@@ -1,10 +1,26 @@
-#ifndef COMMAND_LINE_COMMANDS_HEADER
-#define COMMAND_LINE_COMMANDS_HEADER
+#pragma once
+// ##########################################################################
+// #                                                                        #
+// #                              CLOUDCOMPARE                              #
+// #                                                                        #
+// #  This program is free software; you can redistribute it and/or modify  #
+// #  it under the terms of the GNU General Public License as published by  #
+// #  the Free Software Foundation; version 2 or later of the License.      #
+// #                                                                        #
+// #  This program is distributed in the hope that it will be useful,       #
+// #  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
+// #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
+// #  GNU General Public License for more details.                          #
+// #                                                                        #
+// #          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
+// #                                                                        #
+// ##########################################################################
 
+// CCPluginAPI
+#include <ccCommandLineInterface.h>
+
+// Qt
 #include <QStringList>
-
-#include "ccCommandLineInterface.h"
-
 
 struct CommandChangeOutputFormat : public ccCommandLineInterface::Command
 {
@@ -41,6 +57,13 @@ struct CommandLoad : public ccCommandLineInterface::Command
 	bool process(ccCommandLineInterface& cmd) override;
 };
 
+struct CommandLoadCommandFile : public ccCommandLineInterface::Command
+{
+	CommandLoadCommandFile();
+
+	bool process(ccCommandLineInterface& cmd) override;
+};
+
 struct CommandClearNormals : public ccCommandLineInterface::Command
 {
 	CommandClearNormals();
@@ -72,6 +95,13 @@ struct CommandConvertNormalsToDipAndDipDir : public ccCommandLineInterface::Comm
 struct CommandConvertNormalsToSFs : public ccCommandLineInterface::Command
 {
 	CommandConvertNormalsToSFs();
+
+	bool process(ccCommandLineInterface& cmd) override;
+};
+
+struct CommandConvertNormalsToHSV : public ccCommandLineInterface::Command
+{
+	CommandConvertNormalsToHSV();
 
 	bool process(ccCommandLineInterface& cmd) override;
 };
@@ -153,6 +183,13 @@ struct CommandSFConvertToRGB : public ccCommandLineInterface::Command
 	bool process(ccCommandLineInterface& cmd) override;
 };
 
+struct CommandRGBConvertToSF : public ccCommandLineInterface::Command
+{
+	CommandRGBConvertToSF();
+
+	bool process(ccCommandLineInterface& cmd) override;
+};
+
 struct CommandFilterBySFValue : public ccCommandLineInterface::Command
 {
 	CommandFilterBySFValue();
@@ -188,11 +225,27 @@ struct CommandSetActiveSF : public ccCommandLineInterface::Command
 	bool process(ccCommandLineInterface& cmd) override;
 };
 
-struct CommandRemoveAllSF : public ccCommandLineInterface::Command
+struct CommandSetGlobalShift : public ccCommandLineInterface::Command
 {
-	CommandRemoveAllSF();
+	CommandSetGlobalShift();
 
 	bool process(ccCommandLineInterface& cmd) override;
+};
+
+struct CommandRemoveAllSFs : public ccCommandLineInterface::Command
+{
+	CommandRemoveAllSFs();
+
+	bool process(ccCommandLineInterface& cmd) override;
+};
+
+struct CommandRemoveSF : public ccCommandLineInterface::Command
+{
+	CommandRemoveSF();
+
+	bool process(ccCommandLineInterface& cmd) override;
+
+	bool removeSF(int sfIndex, ccPointCloud& pc);
 };
 
 struct CommandRemoveRGB : public ccCommandLineInterface::Command
@@ -214,11 +267,25 @@ struct CommandRemoveScanGrids : public ccCommandLineInterface::Command
 	CommandRemoveScanGrids();
 
 	bool process(ccCommandLineInterface& cmd) override;
-}; 
+};
+
+struct CommandRemoveSensors : public ccCommandLineInterface::Command
+{
+	CommandRemoveSensors();
+
+	bool process(ccCommandLineInterface& cmd) override;
+};
 
 struct CommandMatchBBCenters : public ccCommandLineInterface::Command
 {
 	CommandMatchBBCenters();
+
+	bool process(ccCommandLineInterface& cmd) override;
+};
+
+struct CommandMatchScales : public ccCommandLineInterface::Command
+{
+	CommandMatchScales();
 
 	bool process(ccCommandLineInterface& cmd) override;
 };
@@ -244,6 +311,20 @@ struct CommandSORFilter : public ccCommandLineInterface::Command
 	bool process(ccCommandLineInterface& cmd) override;
 };
 
+struct CommandNoiseFilter : public ccCommandLineInterface::Command
+{
+	CommandNoiseFilter();
+
+	bool process(ccCommandLineInterface& cmd) override;
+};
+
+struct CommandRemoveDuplicatePoints : public ccCommandLineInterface::Command
+{
+	CommandRemoveDuplicatePoints();
+
+	bool process(ccCommandLineInterface& cmd) override;
+};
+
 struct CommandExtractVertices : public ccCommandLineInterface::Command
 {
 	CommandExtractVertices();
@@ -251,9 +332,23 @@ struct CommandExtractVertices : public ccCommandLineInterface::Command
 	bool process(ccCommandLineInterface& cmd) override;
 };
 
+struct CommandFlipTriangles : public ccCommandLineInterface::Command
+{
+	CommandFlipTriangles();
+
+	bool process(ccCommandLineInterface& cmd) override;
+};
+
 struct CommandSampleMesh : public ccCommandLineInterface::Command
 {
 	CommandSampleMesh();
+
+	bool process(ccCommandLineInterface& cmd) override;
+};
+
+struct CommandCompressFWF : public ccCommandLineInterface::Command
+{
+	CommandCompressFWF();
 
 	bool process(ccCommandLineInterface& cmd) override;
 };
@@ -272,6 +367,27 @@ struct CommandCoordToSF : public ccCommandLineInterface::Command
 	bool process(ccCommandLineInterface& cmd) override;
 };
 
+struct CommandSFToCoord : public ccCommandLineInterface::Command
+{
+	CommandSFToCoord();
+
+	bool process(ccCommandLineInterface& cmd) override;
+};
+
+struct CommandNormToSF : public ccCommandLineInterface::Command
+{
+	CommandNormToSF();
+
+	bool process(ccCommandLineInterface& cmd) override;
+};
+
+struct CommandSFToNorm : public ccCommandLineInterface::Command
+{
+	CommandSFToNorm();
+
+	bool process(ccCommandLineInterface& cmd) override;
+};
+
 struct CommandCrop2D : public ccCommandLineInterface::Command
 {
 	CommandCrop2D();
@@ -282,6 +398,13 @@ struct CommandCrop2D : public ccCommandLineInterface::Command
 struct CommandColorBanding : public ccCommandLineInterface::Command
 {
 	CommandColorBanding();
+
+	bool process(ccCommandLineInterface& cmd) override;
+};
+
+struct CommandColorLevels : public ccCommandLineInterface::Command
+{
+	CommandColorLevels();
 
 	bool process(ccCommandLineInterface& cmd) override;
 };
@@ -305,9 +428,23 @@ struct CommandC2CDist : public CommandDist
 	CommandC2CDist();
 };
 
+struct CommandCPS : public ccCommandLineInterface::Command
+{
+	CommandCPS();
+
+	bool process(ccCommandLineInterface& cmd) override;
+};
+
 struct CommandStatTest : public ccCommandLineInterface::Command
 {
 	CommandStatTest();
+
+	bool process(ccCommandLineInterface& cmd) override;
+};
+
+struct CommandStatFit : public ccCommandLineInterface::Command
+{
+	CommandStatFit();
 
 	bool process(ccCommandLineInterface& cmd) override;
 };
@@ -333,9 +470,58 @@ struct CommandSFOperation : public ccCommandLineInterface::Command
 	bool process(ccCommandLineInterface& cmd) override;
 };
 
+struct CommandSFOperationSF : public ccCommandLineInterface::Command
+{
+	CommandSFOperationSF();
+
+	bool process(ccCommandLineInterface& cmd) override;
+};
+
+struct CommandSFInterpolation : public ccCommandLineInterface::Command
+{
+	CommandSFInterpolation();
+
+	bool process(ccCommandLineInterface& cmd) override;
+};
+
+struct CommandColorInterpolation : public ccCommandLineInterface::Command
+{
+	CommandColorInterpolation();
+
+	bool process(ccCommandLineInterface& cmd) override;
+};
+
+struct CommandFilter : public ccCommandLineInterface::Command
+{
+	CommandFilter();
+
+	bool process(ccCommandLineInterface& cmd) override;
+};
+
+struct CommandRenameEntities : public ccCommandLineInterface::Command
+{
+	CommandRenameEntities();
+
+	bool process(ccCommandLineInterface& cmd) override;
+};
+
 struct CommandSFRename : public ccCommandLineInterface::Command
 {
 	CommandSFRename();
+
+	bool process(ccCommandLineInterface& cmd) override;
+};
+
+struct CommandSFAddConst : public ccCommandLineInterface::Command
+{
+	CommandSFAddConst();
+
+	bool process(ccCommandLineInterface& cmd) override;
+};
+
+struct CommandSFAddId : public ccCommandLineInterface::Command
+{
+	CommandSFAddId();
 
 	bool process(ccCommandLineInterface& cmd) override;
 };
@@ -350,6 +536,13 @@ struct CommandICP : public ccCommandLineInterface::Command
 struct CommandChangePLYExportFormat : public ccCommandLineInterface::Command
 {
 	CommandChangePLYExportFormat();
+
+	bool process(ccCommandLineInterface& cmd) override;
+};
+
+struct CommandPLYNoSFPrefix : public ccCommandLineInterface::Command
+{
+	CommandPLYNoSFPrefix();
 
 	bool process(ccCommandLineInterface& cmd) override;
 };
@@ -394,6 +587,13 @@ struct CommandAutoSave : public ccCommandLineInterface::Command
 struct CommandLogFile : public ccCommandLineInterface::Command
 {
 	CommandLogFile();
+
+	bool process(ccCommandLineInterface& cmd) override;
+};
+
+struct CommandSelectEntities : public ccCommandLineInterface::Command
+{
+	CommandSelectEntities();
 
 	bool process(ccCommandLineInterface& cmd) override;
 };
@@ -454,4 +654,30 @@ struct CommandFeature : public ccCommandLineInterface::Command
 	bool process(ccCommandLineInterface& cmd) override;
 };
 
-#endif //COMMAND_LINE_COMMANDS_HEADER
+struct CommandDebugCmdLine : public ccCommandLineInterface::Command
+{
+	CommandDebugCmdLine();
+
+	bool process(ccCommandLineInterface& cmd) override;
+};
+
+struct CommandSetVerbosity : public ccCommandLineInterface::Command
+{
+	CommandSetVerbosity();
+
+	bool process(ccCommandLineInterface& cmd) override;
+};
+
+struct CommandComputeDistancesFromSensor : public ccCommandLineInterface::Command
+{
+	CommandComputeDistancesFromSensor();
+
+	bool process(ccCommandLineInterface& cmd) override;
+};
+
+struct CommandComputeScatteringAngles : public ccCommandLineInterface::Command
+{
+	CommandComputeScatteringAngles();
+
+	bool process(ccCommandLineInterface& cmd) override;
+};

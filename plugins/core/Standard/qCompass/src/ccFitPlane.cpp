@@ -17,18 +17,17 @@
 
 #include "ccFitPlane.h"
 #include "ccCompass.h"
+
 ccFitPlane::ccFitPlane(ccPlane* p)
 	: ccPlane(p->getXWidth(), p->getYWidth(), &p->getTransformation(), p->getName()) //create an identical plane
 {
-	p->clone();
+	importParametersFrom(*p);
 
 	//add metadata tag defining the ccCompass class type
-	QVariantMap* map = new QVariantMap();
-	map->insert("ccCompassType", "FitPlane");
-	setMetaData(*map, true);
+	setMetaData("ccCompassType", "FitPlane");
 
 	//update name
-	CCVector3 N(getNormal());
+	CCVector3 N = getNormal();
 	//We always consider the normal with a positive 'Z' by default!
 	if (N.z < 0.0)
 		N *= -1.0;
@@ -36,13 +35,13 @@ ccFitPlane::ccFitPlane(ccPlane* p)
 	float dip = 0.0f;
 	float dipdir = 0.0f;
 	ccNormalVectors::ConvertNormalToDipAndDipDir(N, dip, dipdir);
-	QString dipAndDipDirStr = QString("%1/%2").arg((int)dip, 2, 10, QChar('0')).arg((int)dipdir, 3, 10, QChar('0'));
+	QString dipAndDipDirStr = QString("%1/%2").arg(static_cast<int>(dip), 2, 10, QChar('0')).arg(static_cast<int>(dipdir), 3, 10, QChar('0'));
 
 	setName(dipAndDipDirStr);
 
 	//update metadata
-	float rms = -1;
-	float search_r = -1;
+	float rms = -1.0f;
+	float search_r = -1.0f;
 	if (p->hasMetaData("RMS"))
 	{
 		rms = p->getMetaData("RMS").toFloat();
@@ -51,7 +50,7 @@ ccFitPlane::ccFitPlane(ccPlane* p)
 	{
 		search_r = p->getMetaData("Radius").toFloat();
 	}
-	updateAttributes(rms,search_r);
+	updateAttributes(rms, search_r);
 
 	//update drawing properties based on ccCompass state
 	enableStippling(ccCompass::drawStippled);
@@ -63,7 +62,7 @@ void ccFitPlane::updateAttributes(float rms, float search_r)
 {
 	//calculate and store plane attributes
 	//get plane normal vector
-	CCVector3 N(getNormal());
+	CCVector3 N = getNormal();
 	//We always consider the normal with a positive 'Z' by default!
 	if (N.z < 0.0)
 		N *= -1.0;
@@ -76,27 +75,29 @@ void ccFitPlane::updateAttributes(float rms, float search_r)
 	//ccNormalVectors::ConvertNormalToStrikeAndDip(N, strike, dip); //n.b. this returns result using the british RHR?!?)
 
 	//calculate strike using American RHR
-	strike = dipdir - 90;
+	strike = dipdir - 90.0;
 	while (strike < 0) //ensure strike > 0
 	{
-		strike += 360;
+		strike += 360.0;
 	}
-	while (strike >= 360) //ensure strike < 360
+	while (strike >= 360.0) //ensure strike < 360
 	{
-		strike -= 360;
+		strike -= 360.0;
 	}
 
 	//calculate centroid
 	CCVector3 C = getCenter();
 
 	//store attributes (centroid, strike, dip, RMS) on plane
-	QVariantMap* map = new QVariantMap();
-	map->insert("Cx", C.x); map->insert("Cy", C.y); map->insert("Cz", C.z); //centroid
-	map->insert("Nx", N.x); map->insert("Ny", N.y); map->insert("Nz", N.z); //normal
-	map->insert("Strike", strike); map->insert("Dip", dip); map->insert("DipDir", dipdir); //strike & dip
-	map->insert("RMS", rms); //rms
-	map->insert("Radius", search_r); //search radius
-	setMetaData(*map, true);
+	QVariantMap map;
+	{
+		map.insert("Cx", C.x); map.insert("Cy", C.y); map.insert("Cz", C.z); //centroid
+		map.insert("Nx", N.x); map.insert("Ny", N.y); map.insert("Nz", N.z); //normal
+		map.insert("Strike", strike); map.insert("Dip", dip); map.insert("DipDir", dipdir); //strike & dip
+		map.insert("RMS", rms); //rms
+		map.insert("Radius", search_r); //search radius
+	}
+	setMetaData(map, true);
 }
 
 bool ccFitPlane::isFitPlane(ccHObject* object)
@@ -126,7 +127,16 @@ ccFitPlane* ccFitPlane::Fit(CCCoreLib::GenericIndexedCloudPersist* cloud, double
 	if (p) //valid plane
 	{
 		ccFitPlane* fp = new ccFitPlane(p);
-		p->transferChildren(*fp);
+		//p->transferChildren(*fp);
+		delete p;
+		p = nullptr;
+
+		ccPointCloud* pc = dynamic_cast<ccPointCloud*>(cloud);
+		if (pc)
+		{
+			fp->copyGlobalShiftAndScale(*pc);
+		}
+
 		return fp;
 	}
 	else

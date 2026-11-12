@@ -1,32 +1,36 @@
-//##########################################################################
-//#                                                                        #
-//#                              CLOUDCOMPARE                              #
-//#                                                                        #
-//#  This program is free software; you can redistribute it and/or modify  #
-//#  it under the terms of the GNU General Public License as published by  #
-//#  the Free Software Foundation; version 2 or later of the License.      #
-//#                                                                        #
-//#  This program is distributed in the hope that it will be useful,       #
-//#  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
-//#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
-//#  GNU General Public License for more details.                          #
-//#                                                                        #
-//#          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
-//#                                                                        #
-//##########################################################################
+#pragma once
 
-#ifndef CC_HIERARCHY_OBJECT_CASTER_HEADER
-#define CC_HIERARCHY_OBJECT_CASTER_HEADER
+// ##########################################################################
+// #                                                                        #
+// #                              CLOUDCOMPARE                              #
+// #                                                                        #
+// #  This program is free software; you can redistribute it and/or modify  #
+// #  it under the terms of the GNU General Public License as published by  #
+// #  the Free Software Foundation; version 2 or later of the License.      #
+// #                                                                        #
+// #  This program is distributed in the hope that it will be useful,       #
+// #  but WITHOUT ANY WARRANTY; without even the implied warranty of        #
+// #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
+// #  GNU General Public License for more details.                          #
+// #                                                                        #
+// #          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
+// #                                                                        #
+// ##########################################################################
 
-//Local
+// Local
 #include "qCC_db.h"
+
+// System
+#include <vector>
 
 class cc2DLabel;
 class cc2DViewportLabel;
 class cc2DViewportObject;
 class ccCameraSensor;
+class ccCircle;
 class ccCone;
 class ccCylinder;
+class ccDisc;
 class ccDish;
 class ccExtru;
 class ccFacet;
@@ -55,24 +59,30 @@ class ccCoordinateSystem;
 //! Useful class to (try to) statically cast a basic ccHObject to a given type
 class QCC_DB_LIB_API ccHObjectCaster
 {
-public:
-
+  public:
 	//! Converts current object to 'equivalent' ccPointCloud
 	/** Warning: if a mesh is passed, this method returns its vertices.
-		\param obj ccHObject to dynamically cast to a ccPointCloud object
-		\param isLockedVertices the caller can be warned if the returned cloud corresponds to locked vertices
+	    \param obj ccHObject to dynamically cast to a ccPointCloud object
+	    \param isLockedVertices the caller can be warned if the returned cloud corresponds to locked vertices
+	    \param contextualLock whether the concept of 'locked' is contextual (e.g. if 'obj' is the unique parent mesh or the vertices themselves) or strict
 	**/
-	static ccPointCloud* ToPointCloud(ccHObject* obj, bool* isLockedVertices = nullptr);
+	static ccPointCloud* ToPointCloud(ccHObject* obj, bool* isLockedVertices = nullptr, bool contextualLock = true);
 
 	//! Converts current object to 'equivalent' ccGenericPointCloud
 	/** Warning: if a mesh is passed, this method returns its vertices.
-	**/
-	static ccGenericPointCloud* ToGenericPointCloud(ccHObject* obj, bool* isLockedVertices = nullptr);
+	    \param obj ccHObject to dynamically cast to a ccGenericPointCloud object
+	    \param isLockedVertices the caller can be warned if the returned cloud corresponds to locked vertices
+	    \param contextualLock whether the concept of 'locked' is contextual (e.g. if 'obj' is the unique parent mesh or the vertices themselves) or strict
+	 **/
+	static ccGenericPointCloud* ToGenericPointCloud(ccHObject* obj, bool* isLockedVertices = nullptr, bool contextualLock = true);
 
 	//! Converts current object to 'equivalent' ccShiftedObject
 	/** Warning: if a mesh is passed, this method returns its vertices.
-	**/
-	static ccShiftedObject* ToShifted(ccHObject* obj, bool* isLockedVertices = nullptr);
+	    \param obj ccHObject to dynamically cast to a ccShiftedObject object
+	    \param isLockedVertices the caller can be warned if the returned object corresponds to locked vertices
+	    \param contextualLock whether the concept of 'locked' is contextual (e.g. if 'obj' is the unique parent mesh or the vertices themselves) or strict
+	 **/
+	static ccShiftedObject* ToShifted(ccHObject* obj, bool* isLockedVertices = nullptr, bool contextualLock = true);
 
 	//! Converts current object to ccGenericMesh (if possible)
 	static ccGenericMesh* ToGenericMesh(ccHObject* obj);
@@ -103,6 +113,8 @@ public:
 	static ccCone* ToCone(ccHObject* obj);
 	//! Converts current object to ccPlane (if possible)
 	static ccPlane* ToPlane(ccHObject* obj);
+	//! Converts current object to ccDisc (if possible)
+	static ccDisc* ToDisc(ccHObject* obj);
 	//! Converts current object to ccDish (if possible)
 	static ccDish* ToDish(ccHObject* obj);
 	//! Converts current object to ccExtru (if possible)
@@ -145,6 +157,23 @@ public:
 	//! Converts current object to ccCoordinateSystem (if possible)
 	static ccCoordinateSystem* ToCoordinateSystem(ccHObject* obj);
 
-};
+	//! Converts current object to ccCircle (if possible)
+	static ccCircle* ToCircle(ccHObject* obj);
 
-#endif //CC_HIERARCHY_OBJECT_CASTER_HEADER
+	//! Helper: clones the children of sourceEntity and set the resulting entities as children of destEntity
+	/** \warning: Not all children can be cloned this way. Only simple ones for now (labels, sensors, images, etc.).
+	    \param sourceEntity				source entity
+	    \param destEntity				destination entity (can be the same as the source entity)
+	    \param newPointOrTriangleIndex	optional: provides a mapping of the entity elements (points or triangles)
+	                                    between the source and the destination (-1 means no correspondance)
+	    \param sourceEntityProxy		for internal use
+	    \param destEntityProxy			for internal use
+
+	    \return success
+	**/
+	static bool CloneChildren(const ccHObject*  sourceEntity,
+	                          ccHObject*        destEntity,
+	                          std::vector<int>* newPointOrTriangleIndex = nullptr,
+	                          const ccHObject*  sourceEntityProxy       = nullptr,
+	                          ccHObject*        destEntityProxy         = nullptr);
+};
